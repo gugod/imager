@@ -38,6 +38,13 @@ New Features:
 
 - advanced font layout (spacing, kerning, alignment) (sky)
 
+- image rotation, 3 ways of doing rotation:
+  - exact multiple of 90 degrees (the easy case)
+  - rotation by exact angles that results in no scaling, using 
+    interpolation to produce a good result
+  - rotation by shearing, which produces makes lengths in the image larger,
+    but could be useful
+
 Clean up:
 - Make sure everything is doable with the OO interface
   i_flood_fill() for example.
