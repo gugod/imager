@@ -1585,6 +1585,52 @@ int i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp,
 /*
 =back
 
+=head2 Palette wrapper functions
+
+Used for virtual images, these forward palette calls to a wrapped image, 
+assuming the wrapped image is the first pointer in the structure that 
+im->ext_data points at.
+
+=over
+
+=item i_addcolor_forward(i_img *im, i_color *color)
+
+=cut
+*/
+int i_addcolor_forward(i_img *im, i_color *color) {
+  return i_addcolor(*(i_img **)im->ext_data, color);
+}
+
+/*
+=item i_getcolor_forward(i_img *im, int i, i_color *color)
+
+=cut
+*/
+int i_getcolor_forward(i_img *im, int i, i_color *color) {
+  return i_getcolor(*(i_img **)im->ext_data, i, color);
+}
+
+/*
+=item i_colorcount_forward(i_img *im)
+
+=cut
+*/
+int i_colorcount_forward(i_img *im) {
+  return i_colorcount(*(i_img **)im->ext_data);
+}
+
+/*
+=item i_findcolor_forward(i_img *im, i_color *color, i_palidx *entry)
+
+=cut
+*/
+int i_findcolor_forward(i_img *im, i_color *color, i_palidx *entry) {
+  return i_findcolor(*(i_img **)im->ext_data, color, entry);
+}
+
+/*
+=back
+
 =head2 Stream reading and writing wrapper functions
 
 =over
