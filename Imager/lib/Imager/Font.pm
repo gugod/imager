@@ -43,6 +43,8 @@ sub new {
       $Imager::ERRSTR="Font type not found";
       return;
     }
+  } elsif ($hsh{face} && $^O =~ /win32/i) {
+    $type = "w32";
   } else {
     $Imager::ERRSTR="No font file specified";
     return;
@@ -63,6 +65,11 @@ sub new {
   if ($type eq 'tt') {
     require 'Imager/Font/Truetype.pm';
     return Imager::Font::Truetype->new(%hsh);
+  }
+
+  if ($type eq 'w32') {
+    require 'Imager/Font/Win32.pm';
+    return Imager::Font::Win32->new(%hsh);
   }
   # it would be nice to have some generic mechanism to select the
   # class
@@ -140,6 +147,7 @@ Imager::Font - Font handling for Imager.
 
   $t1font = Imager::Font->new(file => 'pathtofont.pfb');
   $ttfont = Imager::Font->new(file => 'pathtofont.ttf');
+  $w32font = Imager::Font->new(face => 'Times New Roman');
 
   $blue = Imager::Color->new("#0000FF");
   $font = Imager::Font->new(file  => 'pathtofont.ttf',
@@ -182,7 +190,7 @@ this:
   use Imager;
   print "Has truetype"      if $Imager::formats{tt};
   print "Has t1 postscript" if $Imager::formats{t1};
-
+  print "Has Win32 fonts"   if $Imager::formats{w32};
 
 =over 4
 
@@ -214,7 +222,18 @@ calling C<Imager::Font->new()> the they take the following values:
   size  => 15
   aa    => 0
 
+To use Win32 fonts supply the facename of the font:
+
+  $font = Imager::Font->new(face=>'Arial Bold Italic');
+
+There isn't any access to other logical font attributes, but this
+typically isn't necessary for Win32 TrueType fonts, since you can
+contruct the full name of the font as above.
+
+Other logical font attributes may be added if there is sufficient demand.
+
 =item bounding_box
+
 Returns the bounding box for the specified string.  Example:
 
   ($neg_width,

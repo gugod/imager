@@ -452,6 +452,7 @@ Revision history for Perl extension Imager.
           like the preset interface with ->convert().
         - MY::postamble() in Makefile.PL included a broken rule 
           (Makefile.PL 1.13.2.5)
+	- support for GDI fonts under Win32
           
 
 =================================================================

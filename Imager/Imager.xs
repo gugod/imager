@@ -2707,3 +2707,60 @@ i_tags_count(im)
         RETVAL = im->tags.count;
       OUTPUT:
         RETVAL
+
+#ifdef WIN32
+
+void
+i_wf_bbox(face, size, text)
+	char *face
+	int size
+	char *text
+      PREINIT:
+	int cords[6];
+      PPCODE:
+        if (i_wf_bbox(face, size, text, strlen(text), cords)) {
+          EXTEND(SP, 6);  
+          PUSHs(sv_2mortal(newSViv(cords[0])));
+          PUSHs(sv_2mortal(newSViv(cords[1])));
+          PUSHs(sv_2mortal(newSViv(cords[2])));
+          PUSHs(sv_2mortal(newSViv(cords[3])));
+          PUSHs(sv_2mortal(newSViv(cords[4])));
+          PUSHs(sv_2mortal(newSViv(cords[5])));
+        }
+
+undef_int
+i_wf_text(face, im, tx, ty, cl, size, text, align, aa)
+	char *face
+	Imager::ImgRaw im
+	int tx
+	int ty
+	Imager::Color cl
+	int size
+	char *text
+	int align
+	int aa
+      CODE:
+	RETVAL = i_wf_text(face, im, tx, ty, cl, size, text, strlen(text), 
+	                   align, aa);
+      OUTPUT:
+	RETVAL
+
+undef_int
+i_wf_cp(face, im, tx, ty, channel, size, text, align, aa)
+	char *face
+	Imager::ImgRaw im
+	int tx
+	int ty
+	int channel
+	int size
+	char *text
+	int align
+	int aa
+      CODE:
+	RETVAL = i_wf_cp(face, im, tx, ty, channel, size, text, strlen(text), 
+		         align, aa);
+      OUTPUT:
+	RETVAL
+
+
+#endif

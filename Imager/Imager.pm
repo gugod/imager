@@ -158,6 +158,10 @@ BEGIN {
   i_init_fonts(); # Initialize font engines
   for(i_list_formats()) { $formats{$_}++; }
 
+  if ($^O =~ /win32/i) {
+    $formats{w32}++;
+  }
+
   if ($formats{'t1'}) {
     i_t1_set_aa(1);
   }

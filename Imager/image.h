@@ -208,7 +208,15 @@ undef_int i_tt_bbox( TT_Fonthandle *handle, float points,char *txt,int len,int c
 
 #endif  /* End of freetype headers */
 
+#ifdef WIN32
 
+extern int i_wf_bbox(char *face, int size, char *text, int length, int *bbox);
+extern int i_wf_text(char *face, i_img *im, int tx, int ty, i_color *cl, 
+		     int size, char *text, int len, int align, int aa);
+extern int i_wf_cp(char *face, i_img *im, int tx, int ty, int channel, 
+		   int size, char *text, int len, int align, int aa);
+
+#endif
 
 
 
