@@ -247,6 +247,7 @@ EOS
    circleripple=>
    {
     type=>'rpnexpr',
+    desc=>'Adds a circular ripple effect',
     rpnexpr=><<'EOS',
 x y cx cy distance !dist
 @dist freq / sin !scale
@@ -268,6 +269,7 @@ EOS
    spiral=>
    {
     type=>'rpnexpr',
+    desc=>'Render a colorful spiral',
     rpnexpr=><<'EOS',
 x y cx cy distance !d y cy - x cx - atan2 !a
 @d spacing / @a + pi 2 * % !a2 
