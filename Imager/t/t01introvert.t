@@ -5,7 +5,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..49\n"; }
+BEGIN { $| = 1; print "1..51\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager;
 #use Data::Dumper;
@@ -139,6 +139,20 @@ i_ppix($im_pal, 1, 0, $black) and print "not ";
 print "ok 48\n";
 print i_img_type($im_pal) == 0
   ? "ok 49\n" : "not ok 49 # pal img shouldn't be paletted now\n";
+
+my %quant =
+  (
+   colors => [$red, $green, $blue, $black],
+   makemap => 'none',
+  );
+my $im_pal2 = i_img_to_pal($im_pal, \%quant);
+$im_pal2 or print "not ";
+print "ok 50\n";
+@{$quant{colors}} == 4 or print "not ";
+print "ok 51\n";
+i_gsamp($im_pal2, 0, 100, 0, 0, 1, 2) eq "\0\xFF\0\0\0\0"."\xFF\0\0" x 48 . "\0\0\xFF" x 50
+  or print "not ";
+print "ok 52\n";
 
 sub check_add {
   my ($base, $im, $color, $expected) = @_;
