@@ -440,6 +440,8 @@ Revision history for Perl extension Imager.
         - documentation for the multi-image GIF reading and tags
         - rotate() method with rotate by steps of 90 degrees (and docs)
         - fixed a bug in i_img_pal_new_low()
+        - added gaussian to the filters list
+        - documented the individual filters
 
 =================================================================
 
