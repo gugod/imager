@@ -36,6 +36,8 @@ New Features:
 
 - freetype 2 support
 
+- advanced font layout (spacing, kerning, alignment) (sky)
+
 Clean up:
 - Make sure everything is doable with the OO interface
   i_flood_fill() for example.
