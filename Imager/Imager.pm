@@ -228,6 +228,11 @@ BEGIN {
 			    defaults => { },
 			    callsub => sub { my %hsh=@_; i_nearest_color($hsh{image}, $hsh{xo}, $hsh{yo}, $hsh{colors}, $hsh{dist}); }
 			   };
+  $filters{gaussian} = {
+                        callseq => [ 'image', 'stddev' ],
+                        defaults => { },
+                        callsub => sub { my %hsh = @_; i_gaussian($hsh{image}, $hsh{stddev}); },
+                       };
 
   $FORMATGUESS=\&def_guess_type;
 }
@@ -2734,17 +2739,61 @@ running the C<filterlist.perl> script that comes with the module
 source.
 
   Filter          Arguments
-  turbnoise
   autolevels      lsat(0.1) usat(0.1) skew(0)
-  radnoise
-  noise           amount(3) subtype(0)
   contrast        intensity
-  hardinvert
+  conv            coef
+  gaussian        stddev
   gradgen         xo yo colors dist
+  hardinvert
+  noise           amount(3) subtype(0)
+  radnoise
+  turbnoise
 
 The default values are in parenthesis.  All parameters must have some
 value but if a parameter has a default value it may be omitted when
 calling the filter function.
+
+The filters are:
+
+=over
+
+=item autolevels
+
+scales the value of each channel so that the values in the image will
+cover the whole possible range for the channel.  I<lsat> and I<usat>
+truncate the range by the specified fraction at the top and bottom of
+the range respectivly..
+
+=item contrast
+
+scales each channel by I<intensity>.  Values of I<intensity> < 1.0
+will reduce the contrast.
+
+=item conv
+
+performs 2 1-dimensional convolutions on the image using the values
+from I<coef>.  I<coef> should be have an odd length.
+
+=item gaussian
+
+performs a gaussian blur of the image, using I<stddev> as the standard
+deviation of the curve used to combine pixels, larger values give
+bigger blurs.  For a definition of Gaussian Blur, see:
+
+  http://www.maths.abdn.ac.uk/~igc/tch/mx4002/notes/node99.html
+
+=item gradgen
+
+generates a gradient, with the given I<colors> at the corresponding
+points (x,y) in I<xo> and I<yo>.  You can specify the way distance is
+measured for color blendeing by setting I<dist> to 0 for Euclidean, 1
+for Euclidean squared, and 2 for Manhattan distance.
+
+=item hardinvert
+
+
+
+=back
 
 FIXME: make a seperate pod for filters?
 
