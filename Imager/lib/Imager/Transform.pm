@@ -495,7 +495,7 @@ Returns a list of input image descriptions, or the number of them,
 depending on content.
 
 The list contains hashrefs, which current contain only one member,
-desc, a description of the use of the image.
+desc, a description of the use of the input image.
 
 =item my $out = $tran->transform(\%opts, \%constants, @imgs)
 
