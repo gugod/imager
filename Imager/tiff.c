@@ -987,6 +987,24 @@ i_writetiff_wiol_faxable(i_img *im, io_glue *ig, int fine) {
   return 1;
 }
 
+static int save_tiff_tags(TIFF *tif, i_img *im) {
+  int i;
+ 
+  for (i = 0; i < text_tag_count; ++i) {
+    int entry;
+    if (i_tags_find(&im->tags, text_tag_names[i].name, 0, &entry)) {
+      if (!TIFFSetField(tif, text_tag_names[i].tag, 
+                       im->tags.tags[entry].data)) {
+       i_push_errorf(0, "cannot save %s to TIFF", text_tag_names[i].name);
+       return 0;
+      }
+    }
+  }
+ 
+  return 1;
+}
+
+
 /*
 =item expand_4bit_hl(buf, count)
 
