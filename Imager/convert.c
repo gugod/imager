@@ -62,6 +62,7 @@ i_convert(i_img *im, i_img *src, float *coeff, int outchan, int inchan)
   /* first check the output image */
   if (im->channels != outchan || im->xsize != src->xsize 
       || im->ysize != src->ysize) {
+    i_img_exorcise(im);
     i_img_empty_ch(im, src->xsize, src->ysize, outchan);
   }
   vals = mymalloc(sizeof(i_color) * src->xsize);
