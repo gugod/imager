@@ -1,6 +1,6 @@
 #!perl -w
 use strict;
-BEGIN { $| = 1; print "1..29\n"; }
+BEGIN { $| = 1; print "1..27\n"; }
 my $loaded;
 END {print "not ok 1\n" unless $loaded;}
 use Imager;
