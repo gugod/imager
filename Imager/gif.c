@@ -2101,8 +2101,8 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
 
   i_clear_error();
 
-  mm_log((1, "i_writegif_callback(quant %p, i_write_callback_t %p, userdata $p, maxlength %d, imgs %p, count %d, opts %p)\n", 
-	  quant, cb, userdata, maxlength, imgs, count, opts));
+  mm_log((1, "i_writegif_callback(quant %p, i_write_callback_t %p, userdata $p, maxlength %d, imgs %p, count %d)\n", 
+	  quant, cb, userdata, maxlength, imgs, count));
   
   if ((gf = EGifOpen(gwd, &gif_writer_callback)) == NULL) {
     gif_push_error();
@@ -2112,7 +2112,7 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
     return 0;
   }
 
-  result = i_writegif_low(quant, gf, imgs, count, opts);
+  result = i_writegif_low(quant, gf, imgs, count);
   return free_gen_write_data(gwd, result);
 #else
   i_clear_error();
@@ -2169,7 +2169,7 @@ i_writegif_wiol(io_glue *ig, i_quantize *quant, i_img **imgs,
       return 0;
     }
     
-    result = i_writegif_low(quant, GifFile, imgs, count, opts);
+    result = i_writegif_low(quant, GifFile, imgs, count);
     
     ig->closecb(ig);
 
