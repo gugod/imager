@@ -131,6 +131,7 @@ i_writeraw(i_img* im,int fd) {
         int y = 0;
         rc = line_size;
         while (rc == line_size && y < im->ysize) {
+	  i_gpal(im, 0, im->xsize, y, data);
           rc = mywrite(fd, data, line_size);
           ++y;
         }
