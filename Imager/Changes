@@ -442,6 +442,9 @@ Revision history for Perl extension Imager.
         - fixed a bug in i_img_pal_new_low()
         - added gaussian to the filters list
         - documented the individual filters
+	- fixed the right-hand side of bounding boxes for TT fonts 
+	  where the last character overlaps the advance width (eg. 
+	  italic fonts)
 
 =================================================================
 
