@@ -356,7 +356,7 @@ sub init {
 			order=>'31',
 			def=>'HAVE_LIBTT',
 			inccheck=>sub { $_[0] eq 'freetype.h' },
-			libcheck=>sub { $_[0] eq 'libttf.a' or $_[0] eq "libttf.$lext" },
+			libcheck=>sub { $_[0] eq "libttf$aext" or $_[0] eq "libttf.$lext" },
 			libfiles=>'-lttf',
 			objfiles=>'',
 			docs=>q{

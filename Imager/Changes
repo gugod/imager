@@ -454,6 +454,7 @@ Revision history for Perl extension Imager.
           (Makefile.PL 1.13.2.5)
 	- support for GDI fonts under Win32
 	- made that work for cygwin too (needs the w32api package)
+	- freetype1 support under Win32
           
 
 =================================================================
