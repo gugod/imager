@@ -645,6 +645,7 @@ i_copy(i_img *im, i_img *src) {
       myfree(pv);
     }
     else {
+      /* currently the only other depth is 16 */
       i_fcolor *pv;
       i_img_16_new_low(im, x1, y1, src->channels);
       pv = mymalloc(sizeof(i_fcolor) * x1);
