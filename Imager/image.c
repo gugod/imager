@@ -292,6 +292,7 @@ i_img_new() {
   if ( (im=mymalloc(sizeof(i_img))) == NULL)
     m_fatal(2,"malloc() error\n");
   
+  *im = IIM_base_8bit_direct;
   im->xsize=0;
   im->ysize=0;
   im->channels=3;
