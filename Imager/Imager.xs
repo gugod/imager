@@ -161,17 +161,27 @@ struct cbdata {
   char buffer[CBDATA_BUFSIZE];
 };
 
+/*
+=item call_writer(cbd, buf, size)
+
+Low-level function to call the perl writer callback.
+
+=cut
+*/
 static ssize_t call_writer(struct cbdata *cbd, void const *buf, size_t size) {
   int count;
   int success;
   SV *sv;
   dSP;
 
+  if (!SvOK(cbd->writecb))
+    return -1;
+
   ENTER;
   SAVETMPS;
   EXTEND(SP, 1);
   PUSHMARK(SP);
-  PUSHs(sv_2mortal(newSVpv((char const *)buf, size)));
+  PUSHs(sv_2mortal(newSVpv((char *)buf, size)));
   PUTBACK;
 
   count = perl_call_sv(cbd->writecb, G_SCALAR);
@@ -197,6 +207,9 @@ static ssize_t call_reader(struct cbdata *cbd, void *buf, size_t size,
   int result;
   SV *data;
   dSP;
+
+  if (!SvOK(cbd->readcb))
+    return -1;
 
   ENTER;
   SAVETMPS;
@@ -249,8 +262,11 @@ static off_t io_seeker(void *p, off_t offset, int whence) {
   off_t result;
   dSP;
 
+  if (!SvOK(cbd->seekcb))
+    return -1;
+
   if (cbd->writing) {
-    if (cbd->used && !write_flush(cbd))
+    if (cbd->used && write_flush(cbd) <= 0)
       return -1;
     cbd->writing = 0;
   }
@@ -302,7 +318,7 @@ static ssize_t io_writer(void *p, void const *data, size_t size) {
   }
   cbd->writing = 1;
   if (cbd->used && cbd->used + size > cbd->maxlength) {
-    if (!write_flush(cbd)) {
+    if (write_flush(cbd) <= 0) {
       return 0;
     }
     cbd->used = 0;
@@ -323,7 +339,7 @@ static ssize_t io_reader(void *p, void *data, size_t size) {
   int i;
 
   if (cbd->writing) {
-    if (!write_flush(cbd))
+    if (write_flush(cbd) <= 0)
       return 0;
     cbd->writing = 0;
   }
@@ -367,12 +383,6 @@ static ssize_t io_reader(void *p, void *data, size_t size) {
     }
   }
 
-  /*printf("io_reader() -> %d\n", total);
-  out = data;
-  for (i = 0; i < 16 && i < total; ++i)
-    printf("%02X ", 0xFF & out[i]);
-  putchar('\n');*/
-  
   return total;
 }
 

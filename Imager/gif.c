@@ -737,6 +737,12 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
   return results;
 }
 
+#if IM_GIFMAJOR >= 4
+/* giflib declares this incorrectly as EgifOpen */
+extern GifFileType *EGifOpen(void *userData, OutputFunc writeFunc);
+
+static int io_glue_read_cb(GifFileType *gft, GifByteType *buf, int length);
+#endif
 
 /*
 =item i_readgif_multi_wiol(ig, int *count)
@@ -1032,7 +1038,7 @@ static int
 io_glue_read_cb(GifFileType *gft, GifByteType *buf, int length) {
   io_glue *ig = (io_glue *)gft->UserData;
 
-  return ig->readcb(ig->source->p, buf, length);
+  return ig->readcb(ig, buf, length);
 }
 
 #endif
@@ -1062,7 +1068,7 @@ i_readgif_wiol(io_glue *ig, int **color_table, int *colors) {
       return NULL;
     }
     
-    return i_readgif_low(GifFile, colour_table, colours);
+    return i_readgif_low(GifFile, color_table, colors);
   
 #else
   i_clear_error();
@@ -1241,6 +1247,10 @@ static ColorMapObject *make_gif_map(i_quantize *quant, i_gif_opts *opts,
   /* giflib spews for 1 colour maps, reasonable, I suppose */
   if (map_size == 1)
     map_size = 2;
+  while (i < map_size) {
+    colors[i].Red = colors[i].Green = colors[i].Blue = 0;
+    ++i;
+  }
   
   map = MakeMapObject(map_size, colors);
   mm_log((1, "XXX map is at %p and colors at %p\n", map, map->Colors));
@@ -1797,8 +1807,6 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
 #if IM_GIFMAJOR >= 4
   GifFileType *gf;
   i_gen_write_data *gwd = i_gen_write_data_new(cb, userdata, maxlength);
-  /* giflib declares this incorrectly as EgifOpen */
-  extern GifFileType *EGifOpen(void *userData, OutputFunc writeFunc);
   int result;
 
   i_clear_error();
@@ -1827,10 +1835,10 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
 #if IM_GIFMAJOR >= 4
 
 static int
-io_glue_write_cb(GifFileType *gft, GifByteType *data, int length) {
+io_glue_write_cb(GifFileType *gft, const GifByteType *data, int length) {
   io_glue *ig = (io_glue *)gft->UserData;
 
-  return ig->writecb(ig->source->p, buf, length);
+  return ig->writecb(ig, data, length);
 }
 
 #endif
@@ -1858,6 +1866,7 @@ i_writegif_wiol(io_glue *ig, i_quantize *quant, i_gif_opts *opts, i_img **imgs,
   else {
 #if IM_GIFMAJOR >= 4
     GifFileType *GifFile;
+    int result;
 
     i_clear_error();
 
@@ -1870,7 +1879,11 @@ i_writegif_wiol(io_glue *ig, i_quantize *quant, i_gif_opts *opts, i_img **imgs,
       return 0;
     }
     
-    return i_writegif_low(quant, GifFile, imgs, count, opts);
+    result = i_writegif_low(quant, GifFile, imgs, count, opts);
+    
+    ig->closecb(ig);
+
+    return result;
 #else
     i_clear_error();
     i_push_error(0, "callbacks not supported with giflib3");

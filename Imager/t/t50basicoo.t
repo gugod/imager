@@ -11,15 +11,22 @@ use IO::Seekable;
 
 Imager::init("log"=>"testout/t50basicoo.log");
 
+# single image/file types
 my @types = qw( jpeg png raw ppm gif tiff bmp tga );
+
+# multiple image/file formats
+my @mtypes = qw(tiff gif);
 
 my %hsh=%Imager::formats;
 
 my $test_num = 0;
 my $count;
 for my $type (@types) {
-  $count += 32 if $hsh{$type};
+  $count += 31 if $hsh{$type};
 }
+#  for my $type (@mtypes) {
+#    $count += 5 if $hsh{$type};
+#  }
 
 print "1..$count\n";
 
@@ -276,11 +283,11 @@ for my $type (@types) {
       $buf = '';
       $did_close = 0;
       $seekpos = 0;
-      ok($wimg->write(writecb=>$writer, seekcb=>$seeker, closecb=>$closer,
-                   readcb=>$reader_min,
+      # we don't use the closecb here - used to make sure we don't get 
+      # a warning/error on an attempt to call an undef close sub
+      ok($wimg->write(writecb=>$writer, seekcb=>$seeker, readcb=>$reader_min,
                    %extraopts, type=>$type),
          "writing $type to callback (no mb)", $wimg);
-      ok($did_close, "checking closecb called");
       $buf .= "SUFFIX\n";
       ok($data eq $buf, "comparing callback output to file data");
     }
@@ -297,6 +304,14 @@ my $img2 =  $img->crop(width=>50, height=>50);
 $img2 -> write(file=> 'testout/t50.ppm', type=>'pnm');
 
 undef($img);
+
+# multi image/file tests
+for my $type (@mtypes) {
+  next unless $hsh{$type};
+
+  
+}
+
 
 Imager::malloc_state();
 

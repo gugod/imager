@@ -113,8 +113,8 @@ ok(15, Imager::i_writeppm_wiol($im, $IO8), "write to cb");
 ok(16, $work eq $data2, "write image match");
 ok(17, $did_close, "did close");
 
-# with a short buffer
-my $IO9 = Imager::io_new_cb(\&io_writer, undef, undef, \&io_close, 1);
+# with a short buffer, no closer
+my $IO9 = Imager::io_new_cb(\&io_writer, undef, undef, undef, 1);
 ok(18, $IO9, "making short writecb object");
 $pos = 0;
 $work = '';
