@@ -1,7 +1,5 @@
 package Imager;
 
-
-
 use strict;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS %formats $DEBUG %filters %DSOs $ERRSTR $fontstate %OPCODES $I2P $FORMATGUESS);
 use IO::File;
@@ -70,7 +68,6 @@ use Imager::Font;
 		i_t1_text
 		i_t1_bbox
 
-
 		i_tt_set_aa
 		i_tt_cp
 		i_tt_text
@@ -124,8 +121,6 @@ use Imager::Font;
 		
 );
 
-
-
 @EXPORT=qw( 
 	   init_log
 	   i_list_formats
@@ -149,7 +144,6 @@ use Imager::Font;
 		  load_plugin
 		  unload_plugin
 		 )]);
-
 
 BEGIN {
   require Exporter;
@@ -317,7 +311,6 @@ sub unload_plugin {
 sub _error_as_msg {
   return join(": ", map $_->[0], i_errors());
 }
-
 
 #
 # Methods to be called on objects.
@@ -837,8 +830,6 @@ sub write {
     $fd = $fh->fileno();
   }
 
-
-
   if ($iolready{$input{type}}) {
     if (defined $fd) {
       $IO = io_new_fd($fd);
@@ -910,8 +901,6 @@ sub write {
 	} else {
 	  $rc = i_writegif_gen($fd, \%input, $self->{IMG});
 	}
-
-
 
       } elsif ($input{gifquant} eq 'lm') {
 	$rc=i_writegif($self->{IMG},$fd,$input{gifplanes},$input{lmdither},$input{lmfixed});
@@ -1354,13 +1343,6 @@ sub transform {
   }
 }
 
-
-
-
-
-
-
-
 sub rubthrough {
   my $self=shift;
   my %opts=(tx=>0,ty=>0,@_);
@@ -1430,10 +1412,7 @@ sub i_color_set {
   return Imager::Color::set($_[0], $_[1], $_[2], $_[3], $_[4]);
 }
 
-
-
 # Draws a box between the specified corner points.
-
 sub box {
   my $self=shift;
   unless ($self->{IMG}) { $self->{ERRSTR}='empty input image'; return undef; }
@@ -1680,17 +1659,6 @@ sub map {
   return $self;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 # destructive border - image is shrunk by one pixel all around
 
 sub border {
@@ -1775,10 +1743,6 @@ sub string {
   return $self;
 }
 
-
-
-
-
 # Shortcuts that can be exported
 
 sub newcolor { Imager::Color->new(@_); }
@@ -1796,11 +1760,6 @@ sub newfont  { Imager::Font->new(@_); }
 sub errstr { 
   ref $_[0] ? $_[0]->{ERRSTR} : $ERRSTR
 }
-
-
-
-
-
 
 # Default guess for the type of an image from extension
 
@@ -1883,11 +1842,6 @@ sub parseiptc {
   }
   return (caption=>$caption,photogr=>$photogr,headln=>$headln,credit=>$credit);
 }
-
-
-
-
-
 
 # Autoload methods go after =cut, and are processed by the autosplit program.
 
