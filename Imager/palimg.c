@@ -146,7 +146,7 @@ The conversion cannot be done for virtual images.
 
 =cut
 */
-int i_img_to_rgb(i_img *im) {
+int i_img_to_rgb_inplace(i_img *im) {
   i_img temp;
   i_color *pal;
   int palsize;
@@ -195,6 +195,18 @@ i_img *i_img_to_pal(i_img *src, i_quantize *quant) {
 }
 
 /*
+=item i_img_to_rgb(i_img *src)
+
+=cut
+*/
+i_img *i_img_to_rgb(i_img *src) {
+  i_img *im = i_img_empty_ch(NULL, src->xsize, src->ysize, im->channels);
+  i_img_rgb_convert(im, src);
+
+  return im;
+}
+
+/*
 =item i_destroy_p(i_img *im)
 
 Destroys data related to a paletted image.
@@ -231,7 +243,7 @@ int i_ppix_p(i_img *im, int x, int y, i_color *val) {
     return 1;
   }
   else {
-    if (i_img_to_rgb(im)) {
+    if (i_img_to_rgb_inplace(im)) {
       return i_ppix(im, x, y, val);
     }
     else
@@ -312,7 +324,7 @@ int i_plin_p(i_img *im, int l, int r, int y, i_color *vals) {
         ((i_palidx *)data)[i] = which;
       }
       else {
-        if (i_img_to_rgb(im)) {
+        if (i_img_to_rgb_inplace(im)) {
           return i+i_plin(im, l+i, r, y, vals+i);
         }
       }

@@ -98,7 +98,7 @@ int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
 #define i_getcolor(im, index, color) \
   (((im)->i_f_getcolor) ? ((im)->i_f_getcolor)((im), (index), (color)) : 0)
 #define i_colorcount(im) \
-  (((im)->i_f_colorcount) ? ((im)->i_f_colorcount)(im) : 0)
+  (((im)->i_f_colorcount) ? ((im)->i_f_colorcount)(im) : -1)
 #define i_findcolor(im, color, entry) \
   (((im)->i_f_findcolor) ? ((im)->i_f_findcolor)((im), (color), (entry)) : 0)
 
@@ -386,6 +386,7 @@ extern void quant_transparent(i_quantize *quant, i_palidx *indices, i_img *img, 
 
 extern i_img *i_img_pal_new(int x, int y, int channels, int maxpal);
 extern i_img *i_img_to_pal(i_img *src, i_quantize *quant);
+extern i_img *i_img_to_rgb(i_img *src);
 
 #ifdef HAVE_LIBJPEG
 i_img* i_readjpeg(int fd,char** iptc_itext,int *tlength);

@@ -1980,6 +1980,10 @@ i_img_to_pal(src, quant)
         }
         myfree(quant.mc_colors);
 
+Imager::ImgRaw
+i_img_to_rgb(src)
+        Imager::ImgRaw src
+
 void
 i_gpal(im, l, r, y)
         Imager::ImgRaw  im
@@ -2022,3 +2026,76 @@ i_ppal(im, l, y, ...)
         else {
           RETVAL = 0;
         }
+      OUTPUT:
+        RETVAL
+
+SV *
+i_addcolor(im, color)
+        Imager::ImgRaw  im
+        Imager::Color   color
+      PREINIT:
+        int index;
+      CODE:
+        index = i_addcolor(im, color);
+        if (index == 0) {
+          RETVAL = sv_2mortal(newSVpv("0 but true", 0));
+        }
+        else if (index == -1) {
+          RETVAL = &PL_sv_undef;
+        }
+        else {
+          RETVAL = sv_2mortal(newSViv(index));
+        }
+      OUTPUT:
+        RETVAL
+
+SV *
+i_getcolor(im, index)
+        Imager::ImgRaw im
+        int index
+      PREINIT:
+        i_color *color;
+      CODE:
+        color = mymalloc(sizeof(i_color));
+        if (i_getcolor(im, index, color)) {
+          RETVAL = sv_newmortal();
+          sv_setref_pv(RETVAL, "Imager::Color", (void *)color);
+        }
+        else {
+          myfree(color);
+          RETVAL = &PL_sv_undef;
+        }
+      OUTPUT:
+        RETVAL
+
+SV *
+i_colorcount(im)
+        Imager::ImgRaw im
+      PREINIT:
+        int count;
+      CODE:
+        count = i_colorcount(im);
+        if (count >= 0) {
+          RETVAL = sv_2mortal(newSViv(count));
+        }
+        else {
+          RETVAL = &PL_sv_undef;
+        }
+      OUTPUT:
+        RETVAL
+
+SV *
+i_findcolor(im, color)
+        Imager::ImgRaw im
+        Imager::Color color
+      PREINIT:
+        i_palidx index;
+      CODE:
+        if (i_findcolor(im, color, &index)) {
+          RETVAL = sv_2mortal(newSViv(index));
+        }
+        else {
+          RETVAL = &PL_sv_undef;
+        }
+      OUTPUT:
+        RETVAL
