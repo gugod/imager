@@ -14,9 +14,11 @@ gaussian.c
 ppport.h
 image.c
 image.h
+imagei.h
 datatypes.h
 datatypes.c
 feat.h
+img16.c
 io.c
 io.h
 log.c
@@ -31,6 +33,8 @@ pnm.c
 filters.c
 feat.c
 font.c
+maskimg.c
+palimg.c
 regmach.c
 regmach.h
 stackmach.c
@@ -49,6 +53,9 @@ lib/Imager/Color.pm
 lib/Imager/Font.pm
 lib/Imager/Transform.pm
 t/t00basic.t
+t/t01introvert.t
+t/t020masked.t
+t/t021sixteen.t
 t/t05error.t
 t/t101jpeg.t
 t/t102png.t
