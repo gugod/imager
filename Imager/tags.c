@@ -48,6 +48,9 @@ A tag is represented by an i_img_tag structure:
 #include <string.h>
 #include <stdlib.h>
 
+/* useful for debugging */
+void i_tags_print(i_img_tags *tags);
+
 /*
 =item i_tags_new(i_img_tags *tags)
 
@@ -298,3 +301,31 @@ int i_tags_get_string(i_img_tags *tags, char *name, int code,
   return 1;
 }
 
+void i_tags_print(i_img_tags *tags) {
+  int i;
+  printf("Alloc %d\n", tags->alloc);
+  printf("Count %d\n", tags->count);
+  for (i = 0; i < tags->count; ++i) {
+    i_img_tag *tag = tags->tags + i;
+    printf("Tag %d\n", i);
+    if (tag->name)
+      printf(" Name : %s\n", tag->name);
+    printf(" Code : %d\n", tag->code);
+    if (tag->data) {
+      int pos;
+      printf(" Data : %d => '", tag->size);
+      for (pos = 0; pos < tag->size; ++pos) {
+	if (tag->data[pos] == '\\' || tag->data[pos] == '\'') {
+	  putchar('\\');
+	  putchar(tag->data[pos]);
+	}
+	else if (tag->data[pos] < ' ' || tag->data[pos] >= '\x7E')
+	  printf("\\x%02X", tag->data[pos]);
+	else
+	  putchar(tag->data[pos]);
+      }
+      printf("'\n");
+      printf(" Idata: %d\n", tag->idata);
+    }
+  }
+}
