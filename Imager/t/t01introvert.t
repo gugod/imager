@@ -44,7 +44,7 @@ print i_img_getchannels($im_rgb) == 3
 print +(i_img_getmask($im_rgb) & 7) == 7
   ? "ok 10\n" : "not ok 10 # 3 channel image bad mask\n";
 print i_img_bits($im_rgb) == 8
-  ? "ok 11\n" : "not ok 11 # 1 channel image has bits != 8\n";
+  ? "ok 11\n" : "not ok 11 # 3 channel image has bits != 8\n";
 print i_img_type($im_rgb) == 0 # direct
   ? "ok 12\n" : "not ok 12 # 3 channel image isn't direct\n";
 
