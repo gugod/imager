@@ -99,7 +99,6 @@ i_img *i_img_pal_new_low(i_img *im, int x, int y, int channels, int maxpal) {
     return NULL;
   }
 
-  im = mymalloc(sizeof(i_img));
   memcpy(im, &IIM_base_8bit_pal, sizeof(i_img));
   palext = mymalloc(sizeof(i_img_pal_ext));
   palext->pal = mymalloc(sizeof(i_color) * maxpal);

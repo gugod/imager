@@ -635,6 +635,7 @@ i_copy(i_img *im, i_img *src) {
   x1 = src->xsize;
   y1 = src->ysize;
   if (src->type == i_direct_type) {
+    printf("Copying direct\n");
     if (src->bits == i_8_bits) {
       i_color *pv;
       i_img_empty_ch(im, x1, y1, src->channels);
@@ -667,7 +668,7 @@ i_copy(i_img *im, i_img *src) {
     /* paletted image */
     i_img_pal_new_low(im, x1, y1, src->channels, i_maxcolors(src));
     /* copy across the palette */
-    count = i_colorcount(im);
+    count = i_colorcount(src);
     for (index = 0; index < count; ++index) {
       i_getcolors(src, index, &temp, 1);
       i_addcolors(im, &temp, 1);
@@ -1048,6 +1049,42 @@ i_scale_nn(i_img *im, float scx, float scy) {
   return new_img;
 }
 
+/*
+=item i_sametype(i_img *im, int xsize, int ysize)
+
+Returns an image of the same type (sample size, channels, paletted/direct).
+
+For paletted images the palette is copied from the source.
+
+=cut
+*/
+
+i_img *i_sametype(i_img *src, int xsize, int ysize) {
+  if (src->type == i_direct_type) {
+    if (src->bits == 8) {
+      return i_img_empty_ch(NULL, xsize, ysize, src->channels);
+    }
+    else if (src->bits == 16) {
+      return i_img_16_new(xsize, ysize, src->channels);
+    }
+    else {
+      i_push_error(0, "Unknown image bits");
+      return NULL;
+    }
+  }
+  else {
+    i_color col;
+    int i;
+
+    i_img *targ = i_img_pal_new(xsize, ysize, src->channels, i_maxcolors(src));
+    for (i = 0; i < i_colorcount(src); ++i) {
+      i_getcolors(src, i, &col, 1);
+      i_addcolors(targ, &col, 1);
+    }
+
+    return targ;
+  }
+}
 
 /*
 =item i_transform(im, opx, opxl, opy, opyl, parm, parmlen)

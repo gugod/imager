@@ -52,6 +52,8 @@ void   i_img_destroy(i_img *im);
 
 void   i_img_info(i_img *im,int *info);
 
+extern i_img *i_sametype(i_img *im, int xsize, int ysize);
+
 i_img *i_img_pal_new(int x, int y, int ch, int maxpal);
 
 /* Image feature settings */
@@ -130,7 +132,7 @@ void i_copy        (i_img *im,i_img *src);
 int i_rubthru     (i_img *im,i_img *src,int tx,int ty);
 
 undef_int i_flipxy (i_img *im, int direction);
-
+extern i_img *i_rotate90(i_img *im, int degrees);
 
 
 void i_bezier_multi(i_img *im,int l,double *x,double *y,i_color *val);

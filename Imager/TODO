@@ -39,11 +39,14 @@ New Features:
 - advanced font layout (spacing, kerning, alignment) (sky)
 
 - image rotation, 3 ways of doing rotation:
-  - exact multiple of 90 degrees (the easy case)
+  - exact multiple of 90 degrees (the easy case) (done)
   - rotation by exact angles that results in no scaling, using 
     interpolation to produce a good result
   - rotation by shearing, which produces makes lengths in the image larger,
     but could be useful
+
+- read_multi() needs to handle other multi-image types, such as TIFF 
+  (probably the most common)
 
 Clean up:
 - Make sure everything is doable with the OO interface
@@ -63,6 +66,12 @@ Clean up:
 
 - should the interlace option for reading raw images have 
   symbolic names in the OO interface?
+
+- in Makefile.PL, MY::postamble has a rule:
+   dyntest.(MYEXTLIB) : dynfilt/Makefile
+	    cd dynfilt && $(MAKE) $(PASTHRU)
+  which has caused a problem on one BSD system.  It probably is meant to
+  be $(MYEXTLIB), but older versions didn't have that either.
 
 
 

@@ -1382,7 +1382,38 @@ sub flip {
   return ();
 }
 
-
+sub rotate {
+  my $self = shift;
+  my %opts = @_;
+  if (defined $opts{right}) {
+    my $degrees = $opts{right};
+    if ($degrees < 0) {
+      $degrees += 360 * int(((-$degrees)+360)/360);
+    }
+    $degrees = $degrees % 360;
+    if ($degrees == 0) {
+      return $self->copy();
+    }
+    elsif ($degrees == 90 || $degrees == 180 || $degrees == 270) {
+      my $result = Imager->new();
+      if ($result->{IMG} = i_rotate90($self->{IMG}, $degrees)) {
+        return $result;
+      }
+      else {
+        $self->{ERRSTR} = $self->_error_as_msg();
+        return undef;
+      }
+    }
+    else {
+      $self->{ERRSTR} = "Parameter 'right' must be a multiple of 90 degrees";
+      return undef;
+    }
+  }
+  else {
+    $self->{ERRSTR} = "Only the 'right' parameter is available";
+    return undef;
+  }
+}
 
 # These two are supported for legacy code only
 
@@ -2656,6 +2687,16 @@ parameter which can take the values C<h>, C<v>, C<vh> and C<hv>.
   $img->flip(dir=>"h");       # horizontal flip
   $img->flip(dir=>"vh");      # vertical and horizontal flip
   $nimg = $img->copy->flip(dir=>"v"); # make a copy and flip it vertically
+
+=head2 Rotating images
+
+Use the rotate() method to rotate an image, currently only in steps of
+90 degrees:
+
+  my $rotated = $img->rotate(right=>270);
+
+Other paremeters will be added in the future to support rotation
+through shearing and through interpolation.
 
 =head2 Blending Images
 

@@ -796,6 +796,10 @@ i_flipxy(im, direction)
     Imager::ImgRaw     im
 	       int     direction
 
+Imager::ImgRaw
+i_rotate90(im, degrees)
+    Imager::ImgRaw      im
+               int      degrees
 
 void
 i_gaussian(im,stdev)
