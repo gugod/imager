@@ -41,6 +41,9 @@ New Features:
 
 - advanced font layout (spacing, kerning, alignment) (sky)
 
+- font synthesis - synthesize a bold or slanted font from a normal font
+  (or even from an existing bold or slanted font)
+
 - image rotation, 3 ways of doing rotation:
   - exact multiple of 90 degrees (the easy case) (done)
   - rotation by exact angles that results in no scaling, using 
@@ -83,6 +86,7 @@ Format specific issues:
   cases.  Also allow ascii mode.  Need to be able to write 
   pbm images which needs ties to the quantization code.
 
+- bmp, pcx and targa image formats
 
 Documentation:
 - Add to the documentation
