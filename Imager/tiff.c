@@ -110,7 +110,6 @@ i_readtiff_wiol(io_glue *ig, int length) {
 
   if (!TIFFGetField(tif, TIFFTAG_RESOLUTIONUNIT, &resunit))
     resunit = RESUNIT_INCH;
-    printf("resunit %d\n", resunit);
   gotXres = TIFFGetField(tif, TIFFTAG_XRESOLUTION, &xres);
   gotYres = TIFFGetField(tif, TIFFTAG_YRESOLUTION, &yres);
   if (gotXres || gotYres) {
