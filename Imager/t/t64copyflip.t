@@ -1,4 +1,4 @@
-BEGIN { $| = 1; print "1..40\n"; }
+BEGIN { $| = 1; print "1..41\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager;
 
@@ -72,6 +72,14 @@ print "ok 40\n";
 if (!$rimg->write(file=>"testout/t64_rot45.ppm")) {
   print "# Cannot save: ",$rimg->errstr,"\n";
 }
+
+my $trimg = $img->matrix_transform(matrix=>[ 1.2, 0, 0,
+                                             0,   1, 0,
+                                             0,   0, 1])
+  or print "not ";
+print "ok 41\n";
+$trimg->write(file=>"testout/t64_trans.ppm")
+  or print "# Cannot save: ",$trimg->errstr,"\n";
 
 sub rot_test {
   my ($testnum, $src, $degrees, $count) = @_;

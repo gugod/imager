@@ -835,6 +835,8 @@ i_matrix_transform(im, xsize, ysize, matrix)
         for (; i < 9; ++i)
           matrix[i] = 0;
         RETVAL = i_matrix_transform(im, xsize, ysize, matrix);        
+      OUTPUT:
+        RETVAL
 
 void
 i_gaussian(im,stdev)

@@ -458,7 +458,9 @@ Revision history for Perl extension Imager.
 	- t1lib support under Win32
 	- fixed a minor bug in font.c (invalid font files caused a SEGV)
 	- checked cygwin for both t1lib and freetype1
-          
+        - freetype 2 support
+        - exposed the matrix_transform() function to the OO interface
+        - added Imager::Matrix2d convenience class
 
 =================================================================
 

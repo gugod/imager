@@ -1416,6 +1416,30 @@ sub rotate {
   }
 }
 
+sub matrix_transform {
+  my $self = shift;
+  my %opts = @_;
+
+  if ($opts{matrix}) {
+    my $xsize = $opts{xsize} || $self->getwidth;
+    my $ysize = $opts{ysize} || $self->getheight;
+
+    my $result = Imager->new;
+    $result->{IMG} = i_matrix_transform($self->{IMG}, $xsize, $ysize, 
+                                        $opts{matrix})
+      or return undef;
+
+    return $result;
+  }
+  else {
+    $self->{ERRSTR} = "matrix parameter required";
+    return undef;
+  }
+}
+
+# blame Leolo :)
+*yatf = \&matrix_transform;
+
 # These two are supported for legacy code only
 
 sub i_color_new {
@@ -3163,6 +3187,32 @@ A spiral built on top of a colour wheel.
 For details on expression parsing see L<Imager::Expr>.  For details on
 the virtual machine used to transform the images, see
 L<Imager::regmach.pod>.
+
+=head2 Matrix Transformations
+
+Rather than having to write code in a little language, you can use a
+matrix to perform transformations, using the matrix_transform()
+method:
+
+  my $im2 = $im->matrix_transform(matrix=>[ -1, 0, $im->getwidth-1,
+                                            0,  1, 0,
+                                            0,  0, 1 ]);
+
+By default the output image will be the same size as the input image,
+but you can supply the xsize and ysize parameters to change the size.
+
+Rather than building matrices by hand you can use the Imager::Matrix2d
+module to build the matrices.  This class has methods to allow you to
+scale, shear, rotate, translate and reflect, and you can combine these
+with an overloaded multiplication operator.
+
+WARNING: the matrix you provide in the matrix operator transforms the
+co-ordinates within the B<destination> image to the co-ordinates
+within the I<source> image.  This can be confusing.
+
+Since Imager has 3 different fairly general ways of transforming an
+image spatially, this method also has a yatf() alias.  Yet Another
+Transformation Function.
 
 =head2 Masked Images
 

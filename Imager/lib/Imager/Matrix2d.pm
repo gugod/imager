@@ -13,6 +13,7 @@ use strict;
   $m3 = Imager::Matrix2d->translate(x=>$dx, y=>$dy);
   $m4 = Imager::Matrix2d->shear(x=>$sx, y=>$sy);
   $m5 = Imager::Matrix2d->reflect(axis=>$axis);
+  $m6 = Imager::Matrix2d->scale(x=>$xratio, y=>$yratio);
   $m6 = $m1 * $m2;
   $m7 = $m1 + $m2;
   use Imager::Matrix2d qw(:handy);
@@ -31,6 +32,9 @@ This class provides a simple wrapper around a reference to an array of
 Most of the methods in this class are constructors.  The others are
 overloaded operators.
 
+Note that since Imager represents images with y increasing from top to
+bottom, rotation angles are clockwise, rather than counter-clockwise.
+
 =over
 
 =cut
@@ -38,10 +42,12 @@ overloaded operators.
 use vars qw(@EXPORT_OK %EXPORT_TAGS @ISA);
 @ISA = 'Exporter';
 require 'Exporter.pm';
-@EXPORT_OK = qw(m2d_rotate m2d_identity m2d_translate m2d_shear m2d_reflect);
+@EXPORT_OK = qw(m2d_rotate m2d_identity m2d_translate m2d_shear 
+                m2d_reflect m2d_scale);
 %EXPORT_TAGS =
   (
-   handy=> [ qw(m2d_rotate m2d_identity m2d_translate m2d_shear m2d_reflect) ],
+   handy=> [ qw(m2d_rotate m2d_identity m2d_translate m2d_shear 
+                m2d_reflect m2d_scale) ],
   );
 
 use overload 
@@ -179,6 +185,38 @@ sub reflect {
   # fun with matrices
   return $class->rotate(radians=>-$angle) * $class->reflect(axis=>'x') 
     * $class->rotate(radians=>$angle);
+}
+
+=item scale(x=>$xratio, y=>$yratio)
+
+Scales at the given ratios.
+
+You can also specify a center for the scaling with the cx and cy
+parameters.
+
+=cut
+
+sub scale {
+  my ($class, %opts) = @_;
+
+  if (defined $opts{x} || defined $opts{'y'}) {
+    $opts{x} = 1 unless defined $opts{x};
+    $opts{'y'} = 1 unless defined $opts{'y'};
+    if ($opts{cx} || $opts{cy}) {
+      return $class->translate(x=>-$opts{cx}, 'y'=>-$opts{cy})
+        * $class->scale(x=>$opts{x}, 'y'=>$opts{'y'})
+          * $class->translate(x=>$opts{cx}, 'y'=>$opts{cy});
+    }
+    else {
+      return bless [ $opts{x}, 0,          0,
+                     0,        $opts{'y'}, 0,
+                     0,        0,          1 ], $class;
+    }
+  }
+  else {
+    $Imager::ERRSTR = 'x or y parameter required';
+    return undef;
+  }
 }
 
 =item _mult()
@@ -327,6 +365,10 @@ sub m2d_shear {
 
 sub m2d_reflect {
   return __PACKAGE__->reflect(@_);
+}
+
+sub m2d_scale {
+  return __PACKAGE__->scale(@_);
 }
 
 1;

@@ -2,7 +2,7 @@
 
 use Imager;
 my $loaded;
-BEGIN { $|=1; print "1..5\n"; }
+BEGIN { $|=1; print "1..6\n"; }
 END { print "not ok 1\n" unless $loaded; }
 use Imager::Matrix2d ':handy';
 print "ok 1\n";
@@ -30,6 +30,12 @@ almost_equal($shear, [ 1,   0.2, 0,
                        0.3, 1,   0,
                        0,   0,   1 ]) or print "not ";
 print "ok 5\n";
+
+my $scale = Imager::Matrix2d->scale(x=>1.2, 'y'=>0.8);
+almost_equal($scale, [ 1.2, 0,   0,
+                       0,   0.8, 0,
+                       0,   0,   1 ]) or print "not ";
+print "ok 6\n";
 
 sub almost_equal {
   my ($m1, $m2) = @_;
