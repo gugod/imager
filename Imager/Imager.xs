@@ -2615,7 +2615,7 @@ i_tags_findn(im, code, start)
         else
           ST(0) = &PL_sv_undef;
 
-undef_int
+int
 i_tags_delete(im, entry)
         Imager::ImgRaw  im
         int             entry
@@ -2624,7 +2624,7 @@ i_tags_delete(im, entry)
       OUTPUT:
         RETVAL
 
-undef_int
+int
 i_tags_delbyname(im, name)
         Imager::ImgRaw  im
         char *          name
@@ -2633,7 +2633,7 @@ i_tags_delbyname(im, name)
       OUTPUT:
         RETVAL
 
-undef_int
+int
 i_tags_delbycode(im, code)
         Imager::ImgRaw  im
         int             code

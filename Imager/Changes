@@ -432,6 +432,12 @@ Revision history for Perl extension Imager.
         - rubthru can now rub a 2 channel image over a 1 or 3 channel 
           image
         - rubthru for high-bit images
+        - i_readgif_multi functions, which return all the frames from a
+          GIF file, along with a bunch of meta-information as tag
+        - OO interface to tags
+        - OO interface read_multi() to read multi-image files (just GIF
+          so far)
+        - documentation for the multi-image GIF reading and tags
 
 =================================================================
 

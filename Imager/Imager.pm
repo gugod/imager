@@ -604,6 +604,75 @@ sub tags {
   }
 }
 
+sub addtag {
+  my $self = shift;
+  my %opts = @_;
+
+  return -1 unless $self->{IMG};
+  if ($opts{name}) {
+    if (defined $opts{value}) {
+      if ($opts{value} =~ /^\d+$/) {
+        # add as a number
+        return i_tags_addn($self->{IMG}, $opts{name}, 0, $opts{value});
+      }
+      else {
+        return i_tags_add($self->{IMG}, $opts{name}, 0, $opts{value}, 0);
+      }
+    }
+    elsif (defined $opts{data}) {
+      # force addition as a string
+      return i_tags_add($self->{IMG}, $opts{name}, 0, $opts{data}, 0);
+    }
+    else {
+      $self->{ERRSTR} = "No value supplied";
+      return undef;
+    }
+  }
+  elsif ($opts{code}) {
+    if (defined $opts{value}) {
+      if ($opts{value} =~ /^\d+$/) {
+        # add as a number
+        return i_tags_addn($self->{IMG}, $opts{code}, 0, $opts{value});
+      }
+      else {
+        return i_tags_add($self->{IMG}, $opts{code}, 0, $opts{value}, 0);
+      }
+    }
+    elsif (defined $opts{data}) {
+      # force addition as a string
+      return i_tags_add($self->{IMG}, $opts{code}, 0, $opts{data}, 0);
+    }
+    else {
+      $self->{ERRSTR} = "No value supplied";
+      return undef;
+    }
+  }
+  else {
+    return undef;
+  }
+}
+
+sub deltag {
+  my $self = shift;
+  my %opts = @_;
+
+  return 0 unless $self->{IMG};
+
+  if (defined $opts{index}) {
+    return i_tags_delete($self->{IMG}, $opts{index});
+  }
+  elsif (defined $opts{name}) {
+    return i_tags_delbyname($self->{IMG}, $opts{name});
+  }
+  elsif (defined $opts{code}) {
+    return i_tags_delbycode($self->{IMG}, $opts{code});
+  }
+  else {
+    $self->{ERRSTR} = "Need to supply index, name, or code parameter";
+    return 0;
+  }
+}
+
 # Read an image from file
 
 sub read {
@@ -2095,6 +2164,9 @@ enough information to guess the type, then this parameter is optional.
 Note: you cannot use the callback or data parameter with giflib
 versions before 4.0.
 
+When reading from a GIF file with read_multi() the images are returned
+as paletted images.
+
 =head2 Gif options
 
 These options can be specified when calling write_multi() for gif
@@ -3053,6 +3125,119 @@ addi@umich.edu if you test this.
 Note: This seems to test ok on the following systems:
 Linux, Solaris, HPUX, OpenBSD, FreeBSD, TRU64/OSF1, AIX.
 If you test this on other systems please let me know.
+
+=head2 Tags
+
+Image tags contain meta-data about the image, ie. information not
+stored as pixels of the image.
+
+At the perl level each tag has a name or code and a value, which is an
+integer or an arbitrary string.  An image can contain more than one
+tag with the same name or code.
+
+You can retrieve tags from an image using the tags() method, you can
+get all of the tags in an image, as a list of array references, with
+the code or name of the tag followed by the value of the tag:
+
+  my @alltags = $img->tags;
+
+or you can get all tags that have a given name:
+
+  my @namedtags = $img->tags(name=>$name);
+
+or a given code:
+
+  my @tags = $img->tags(code=>$code);
+
+You can add tags using the addtag() method, either by name:
+
+  my $index = $img->addtag(name=>$name, value=>$value);
+
+or by code:
+
+  my $index = $img->addtag(code=>$code, value=>$value);
+
+You can remove tags with the deltag() method, either by index:
+
+  $img->deltag(index=>$index);
+
+or by name:
+
+  $img->deltag(name=>$name);
+
+or by code:
+
+  $img->deltag(code=>$code);
+
+In each case deltag() returns the number of tags deleted.
+
+When you read a GIF image using read_multi(), each image can include
+the following tags:
+
+=over
+
+=item gif_left
+
+the offset of the image from the left of the "screen" ("Image Left
+Position")
+
+=item gif_top
+
+the offset of the image from the top of the "screen" ("Image Top Position")
+
+=item gif_interlace
+
+non-zero if the image was interlaced ("Interlace Flag")
+
+=item gif_screen_width
+
+=item gif_screen_height
+
+the size of the logical screen ("Logical Screen Width", 
+"Logical Screen Height")
+
+=item gif_local_map
+
+Non-zero if this image had a local color map.
+
+=item gif_background
+
+The index in the global colormap of the logical screen's background
+color.  This is only set if the current image uses the global
+colormap.
+
+=item gif_trans_index
+
+The index of the color in the colormap used for transparency.  If the
+image has a transparency then it is returned as a 4 channel image with
+the alpha set to zero in this palette entry. ("Transparent Color Index")
+
+=item gif_delay
+
+The delay until the next frame is displayed, in 1/100 of a second. 
+("Delay Time").
+
+=item gif_user_input
+
+whether or not a user input is expected before continuing (view dependent) 
+("User Input Flag").
+
+=item gif_disposal
+
+how the next frame is displayed ("Disposal Method")
+
+=item gif_loop
+
+the number of loops from the Netscape Loop extension.  This may be zero.
+
+=item gif_comment
+
+the first block of the first gif comment before each image.
+
+=back
+
+Where applicable, the ("name") is the name of that field from the GIF89 
+standard.
 
 =head1 BUGS
 
