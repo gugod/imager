@@ -337,6 +337,7 @@ i_img *i_matrix_transform(i_img *src, int xsize, int ysize, double *matrix) {
       i_color temp;
       int tempval;
       i_getcolors(src, i, &temp, 1);
+      tempval = 0;
       for (ch = 0; ch < src->channels; ++ch) {
         tempval += temp.channel[ch];
       }
