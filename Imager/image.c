@@ -1,4 +1,5 @@
 #include "image.h"
+#include "imagei.h"
 #include "io.h"
 
 /*
@@ -37,7 +38,7 @@ Some of these functions are internal.
 #define minmax(a,b,i) ( ((a>=i)?a: ( (b<=i)?b:i   )) )
 
 /* Hack around an obscure linker bug on solaris - probably due to builtin gcc thingies */
-void fake() { ceil(1); }
+void fake(void) { ceil(1); }
 
 static int i_ppix_d(i_img *im, int x, int y, i_color *val);
 static int i_gpix_d(i_img *im, int x, int y, i_color *val);
@@ -1313,8 +1314,10 @@ i_ppixf_d(i_img *im, int x, int y, i_fcolor *val) {
   
   if ( x>-1 && x<im->xsize && y>-1 && y<im->ysize ) {
     for(ch=0;ch<im->channels;ch++)
-      if (im->ch_mask&(1<<ch)) 
-	im->idata[(x+y*im->xsize)*im->channels+ch]=val->channel[ch] * 255.99;
+      if (im->ch_mask&(1<<ch)) {
+	im->idata[(x+y*im->xsize)*im->channels+ch] = 
+          SampleFTo8(val->channel[ch]);
+      }
     return 0;
   }
   return -1; /* error was clipped */
@@ -1329,8 +1332,10 @@ int
 i_gpixf_d(i_img *im, int x, int y, i_fcolor *val) {
   int ch;
   if (x>-1 && x<im->xsize && y>-1 && y<im->ysize) {
-    for(ch=0;ch<im->channels;ch++) 
-    	val->channel[ch]=im->idata[(x+y*im->xsize)*im->channels+ch]/255.99;
+    for(ch=0;ch<im->channels;ch++) {
+      val->channel[ch] = 
+        Sample8ToF(im->idata[(x+y*im->xsize)*im->channels+ch]);
+    }
     return 0;
   }
   return -1; /* error was cliped */
@@ -1363,7 +1368,7 @@ i_glinf_d(i_img *im, int l, int r, int y, i_fcolor *vals) {
     count = r - l;
     for (i = 0; i < count; ++i) {
       for (ch = 0; ch < im->channels; ++ch)
-	vals[i].channel[ch] = *data++ * 255.99;
+	vals[i].channel[ch] = SampleFTo8(*data++);
     }
     return count;
   }
@@ -1400,7 +1405,7 @@ i_plinf_d(i_img *im, int l, int r, int y, i_fcolor *vals) {
     for (i = 0; i < count; ++i) {
       for (ch = 0; ch < im->channels; ++ch) {
 	if (im->ch_mask & (1 << ch)) 
-	  *data = vals[i].channel[ch] / 255.99;
+	  *data = Sample8ToF(vals[i].channel[ch]);
 	++data;
       }
     }
@@ -1546,7 +1551,7 @@ int i_ppixf_fp(i_img *im, int x, int y, i_fcolor *pix) {
   int ch;
 
   for (ch = 0; ch < im->channels; ++ch)
-    temp.channel[ch] = pix->channel[ch] * 255.9;
+    temp.channel[ch] = SampleFTo8(pix->channel[ch]);
   
   return i_ppix(im, x, y, &temp);
 }
@@ -1562,7 +1567,7 @@ int i_gpixf_fp(i_img *im, int x, int y, i_fcolor *pix) {
 
   if (i_gpix(im, x, y, &temp)) {
     for (ch = 0; ch < im->channels; ++ch)
-      pix->channel[ch] = temp.channel[ch] / 255.9;
+      pix->channel[ch] = Sample8ToF(temp.channel[ch]);
     return 0;
   }
   else 
@@ -1586,7 +1591,7 @@ int i_plinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix) {
       work = mymalloc(sizeof(i_color) * (r-l));
       for (i = 0; i < r-l; ++i) {
         for (ch = 0; ch < im->channels; ++ch) 
-          work[i].channel[ch] = pix[i].channel[ch] * 255.99;
+          work[i].channel[ch] = SampleFTo8(pix[i].channel[ch]);
       }
       ret = i_plin(im, l, r, y, work);
       myfree(work);
@@ -1620,7 +1625,7 @@ int i_glinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix) {
       ret = i_plin(im, l, r, y, work);
       for (i = 0; i < r-l; ++i) {
         for (ch = 0; ch < im->channels; ++ch) 
-          pix[i].channel[ch] = work[i].channel[ch] / 255.99;
+          pix[i].channel[ch] = Sample8ToF(work[i].channel[ch]);
       }
       myfree(work);
 
@@ -1653,7 +1658,7 @@ int i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp,
       work = mymalloc(sizeof(i_sample_t) * (r-l));
       ret = i_gsamp(im, l, r, y, work, chans, chan_count);
       for (i = 0; i < ret; ++i) {
-          samp[i] = work[i] / 255.99;
+          samp[i] = Sample8ToF(work[i]);
       }
       myfree(work);
 

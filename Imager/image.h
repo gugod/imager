@@ -145,6 +145,7 @@ void i_conv        (i_img *im,float *coeff,int len);
 
 /* colour manipulation */
 extern int i_convert(i_img *im, i_img *src, float *coeff, int outchan, int inchan);
+extern void i_map(i_img *im, unsigned char (*maps)[256], unsigned int mask);
 
 float i_img_diff   (i_img *im1,i_img *im2);
 
@@ -525,12 +526,12 @@ extern i_error_cb i_set_error_cb(i_error_cb);
 extern i_failed_cb i_set_failed_cb(i_failed_cb);
 extern void i_set_argv0(char const *);
 extern int i_set_errors_fatal(int new_fatal);
-extern i_errmsg *i_errors();
+extern i_errmsg *i_errors(void);
 
 extern void i_push_error(int code, char const *msg);
 extern void i_push_errorf(int code, char const *fmt, ...);
 extern void i_push_errorvf(int code, char const *fmt, va_list);
-extern void i_clear_error();
+extern void i_clear_error(void);
 extern int i_failed(int code, char const *msg);
 
 /* image tag processing */

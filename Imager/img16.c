@@ -21,6 +21,7 @@ sample image type to work with.
 */
 
 #include "image.h"
+#include "imagei.h"
 
 static int i_ppix_d16(i_img *im, int x, int y, i_color *val);
 static int i_gpix_d16(i_img *im, int x, int y, i_color *val);
@@ -130,13 +131,6 @@ typedef unsigned short i_sample16_t;
 
 #endif
 
-#define fto16_factor 65535.99
-#define ffrom16_factor (1/65535.99)
-
-#define FTo16(num) ((num) * fto16_factor)
-/* we add that little bit to avoid rounding issues */
-#define FFrom16(num) ((num) * ffrom16_factor + 0.00001)
-
 /*
 =item i_img_16_new(int x, int y, int ch)
 
@@ -214,7 +208,7 @@ static int i_ppixf_d16(i_img *im, int x, int y, i_fcolor *val) {
 
   off = (x + y * im->xsize) * im->channels;
   for (ch = 0; ch < im->channels; ++ch)
-    STORE16(im->idata, off+ch, FTo16(val->channel[ch]));
+    STORE16(im->idata, off+ch, SampleFTo16(val->channel[ch]));
 
   return 0;
 }
@@ -227,7 +221,7 @@ static int i_gpixf_d16(i_img *im, int x, int y, i_fcolor *val) {
 
   off = (x + y * im->xsize) * im->channels;
   for (ch = 0; ch < im->channels; ++ch)
-    val->channel[ch] = FFrom16(GET16(im->idata, off+ch));
+    val->channel[ch] = Sample16ToF(GET16(im->idata, off+ch));
 
   return 0;
 }
@@ -284,7 +278,7 @@ static int i_glinf_d16(i_img *im, int l, int r, int y, i_fcolor *vals) {
     count = r - l;
     for (i = 0; i < count; ++i) {
       for (ch = 0; ch < im->channels; ++ch) {
-	vals[i].channel[ch] = FFrom16(GET16(im->idata, off));
+	vals[i].channel[ch] = Sample16ToF(GET16(im->idata, off));
         ++off;
       }
     }
@@ -305,7 +299,7 @@ static int i_plinf_d16(i_img *im, int l, int r, int y, i_fcolor *vals) {
     count = r - l;
     for (i = 0; i < count; ++i) {
       for (ch = 0; ch < im->channels; ++ch) {
-        STORE16(im->idata, off, FTo16(vals[i].channel[ch]));
+        STORE16(im->idata, off, SampleFTo16(vals[i].channel[ch]));
         ++off;
       }
     }
@@ -383,7 +377,7 @@ static int i_gsampf_d16(i_img *im, int l, int r, int y, i_fsample_t *samps,
       }
       for (i = 0; i < w; ++i) {
         for (ch = 0; ch < chan_count; ++ch) {
-          *samps++ = FFrom16(GET16(im->idata, off+chans[ch]));
+          *samps++ = Sample16ToF(GET16(im->idata, off+chans[ch]));
           ++count;
         }
         off += im->channels;
@@ -392,7 +386,7 @@ static int i_gsampf_d16(i_img *im, int l, int r, int y, i_fsample_t *samps,
     else {
       for (i = 0; i < w; ++i) {
         for (ch = 0; ch < chan_count; ++ch) {
-          *samps++ = FFrom16(GET16(im->idata, off+ch));
+          *samps++ = Sample16ToF(GET16(im->idata, off+ch));
           ++count;
         }
         off += im->channels;

@@ -28,7 +28,7 @@ void  bndcheck_all(void);
 #else
 
 #define malloc_comm(a,b) (mymalloc(a))
-void malloc_state();
+void malloc_state(void);
 void* mymalloc(int size);
 void myfree(void *p);
 

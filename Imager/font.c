@@ -119,7 +119,7 @@ Shuts the t1lib font rendering engine down.
 */
 
 void
-i_close_t1() {
+i_close_t1(void) {
   T1_CloseLib();
 }
 

@@ -226,7 +226,7 @@ struct octt {
   int cnt;
 };
 
-struct octt *octt_new();
+struct octt *octt_new(void);
 int octt_add(struct octt *ct,unsigned char r,unsigned char g,unsigned char b);
 void octt_dump(struct octt *ct);
 void octt_count(struct octt *ct,int *tot,int max,int *overflow);

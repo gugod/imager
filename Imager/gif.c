@@ -51,7 +51,7 @@ functionality with giflib3.
 */
 
 static char const *gif_error_msg(int code);
-static void gif_push_error();
+static void gif_push_error(void);
 
 #if IM_GIFMAJOR >= 4
 
@@ -1252,7 +1252,7 @@ an error message and pushes it on the error stack.
 =cut
 */
 
-static void gif_push_error() {
+static void gif_push_error(void) {
   int code = GifLastError(); /* clears saved error */
 
   i_push_error(code, gif_error_msg(code));
