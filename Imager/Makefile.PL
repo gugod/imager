@@ -62,8 +62,7 @@ if (defined $Config{'d_dlsymun'}) { $OSDEF  .= ' -DDLSYMUN'; }
 	   gaussian.o conv.o pnm.o raw.o feat.o font.o
 	   filters.o dynaload.o stackmach.o datatypes.o
 	   regmach.o trans2.o quant.o error.o convert.o
-	   map.o tags.o palimg.o maskimg.o img16.o rotate.o
-	   win32.o);
+	   map.o tags.o palimg.o maskimg.o img16.o rotate.o);
 
 %opts=(
        'NAME'         => 'Imager',
@@ -268,6 +267,10 @@ sub init {
     push(@incs, split /;/, $ENV{INCLUDE}) if exists $ENV{INCLUDE};
     push(@libs, split /;/, $ENV{LIB}) if exists $ENV{LIB};
   }
+  if ($^O eq 'cygwin') {
+    push(@libs, '/usr/lib/w32api') if -d '/usr/lib/w32api';
+    push(@incs, '/usr/include/w32api') if -d '/usr/lib/w32api';
+  }
 
   $formats{'jpeg'}={
 		    order=>'21',
@@ -363,6 +366,20 @@ sub init {
 				used to rasterize for us. The only drawback is that there
 				are alot of badly designed fonts out there.}
 		       };
+  $formats{'w32'} = {
+		     order=>40,
+		     def=>'HAVE_WIN32',
+		     inccheck=>sub { lc $_[0] eq 'windows.h' },
+		     libcheck=>sub { lc $_[0] eq 'gdi32.lib' 
+				       || lc $_[0] eq 'libgdi32.a' },
+		     libfiles=>$^O eq 'cygwin' ? '-lgdi32' : '',
+		     objfiles=>'win32.o',
+		     docs => <<DOCS
+Uses the Win32 GDI for rendering text.
+
+This currently only works on under normal Win32 and cygwin.
+DOCS
+		    };
   # Make fix indent
   for (keys %formats) { $formats{$_}->{docs} =~ s/^\s+/  /mg; }
 }

@@ -2708,7 +2708,7 @@ i_tags_count(im)
       OUTPUT:
         RETVAL
 
-#ifdef WIN32
+#ifdef HAVE_WIN32
 
 void
 i_wf_bbox(face, size, text)

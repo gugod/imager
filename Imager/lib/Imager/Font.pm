@@ -43,7 +43,7 @@ sub new {
       $Imager::ERRSTR="Font type not found";
       return;
     }
-  } elsif ($hsh{face} && $^O =~ /win32/i) {
+  } elsif ($hsh{face}) {
     $type = "w32";
   } else {
     $Imager::ERRSTR="No font file specified";

@@ -1,3 +1,4 @@
+#!perl -w
 BEGIN { $| = 1; print "1..4\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager qw(:all);
@@ -14,8 +15,8 @@ sub skip {
   exit(0);
 }
 
-if ($^O !~ /win32/i) { skip(); }
-print "# has tt\n";
+i_has_format('w32') or skip();
+print "# has w32\n";
 
 $fontname=$ENV{'TTFONTTEST'} || 'Times New Roman Bold';
 
@@ -55,4 +56,4 @@ my $font = Imager::Font->new(face=>$fontname, size=>20);
 $img->string(x=>30, y=>30, string=>"Imager", color=>NC(255, 0, 0), 
 	     font=>$font);
 $img->write(file=>'testout/t37_oo.ppm') or print "not ";
-print "ok 4 # ",$img->errstr,"\n";
+print "ok 4 # ",$img->errstr||'',"\n";

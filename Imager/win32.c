@@ -1,5 +1,3 @@
-#ifdef WIN32
-
 #include "image.h"
 #define STRICT
 #include <windows.h>
@@ -235,5 +233,3 @@ i_wf_cp(char *face, i_img *im, int tx, int ty, int channel, int size,
 
   return 1;
 }
-
-#endif
