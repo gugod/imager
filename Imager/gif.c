@@ -405,6 +405,73 @@ Returns a pointer to an array of i_img *, and puts the count into
 Unlike the normal i_readgif*() functions the images are paletted
 images rather than a combined RGB image.
 
+This functions sets tags on the images returned:
+
+=over
+
+=item gif_left
+
+the offset of the image from the left of the "screen" ("Image Left
+Position")
+
+=item gif_top
+
+the offset of the image from the top of the "screen" ("Image Top Position")
+
+=item gif_interlace
+
+non-zero if the image was interlaced ("Interlace Flag")
+
+=item gif_screen_width
+
+=item gif_screen_height
+
+the size of the logical screen ("Logical Screen Width", 
+"Logical Screen Height")
+
+=item gif_local_map
+
+Non-zero if this image had a local color map.
+
+=item gif_background
+
+The index in the global colormap of the logical screen's background
+color.  This is only set if the current image uses the global
+colormap.
+
+=item gif_trans_index
+
+The index of the color in the colormap used for transparency.  If the
+image has a transparency then it is returned as a 4 channel image with
+the alpha set to zero in this palette entry. ("Transparent Color Index")
+
+=item gif_delay
+
+The delay until the next frame is displayed, in 1/100 of a second. 
+("Delay Time").
+
+=item gif_user_input
+
+whether or not a user input is expected before continuing (view dependent) 
+("User Input Flag").
+
+=item gif_disposal
+
+how the next frame is displayed ("Disposal Method")
+
+=item gif_loop
+
+the number of loops from the Netscape Loop extension.  This may be zero.
+
+=item gif_comment
+
+the first block of the first gif comment before each image.
+
+=back
+
+Where applicable, the ("name") is the name of that field from the GIF89 
+standard.
+
 =cut
 */
 
@@ -434,33 +501,13 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
 
   mm_log((1,"i_readgif_multi_low(GifFile %p, , count %p)\n", GifFile, count));
 
-  /* it's possible that the caller has called us with *colour_table being
-     non-NULL, but we check that to see if we need to free an allocated
-     colour table on error.
-  */
-  /*if (colour_table)
-   *colour_table = NULL;*/
-
   BackGround = GifFile->SBackGroundColor;
-
-  /*
-  ColorMap = (GifFile->Image.ColorMap ? GifFile->Image.ColorMap : GifFile->SColorMap);
-
-  if (ColorMap) {
-    ColorMapSize = ColorMap->ColorCount;
-    i_colortable_copy(colour_table, colours, ColorMap);
-    cmapcnt++;
-  }
-  */
-  
 
   Size = GifFile->SWidth * sizeof(GifPixelType);
   
   if ((GifRow = (GifRowType) mymalloc(Size)) == NULL)
     m_fatal(0,"Failed to allocate memory required, aborted."); /* First row. */
 
-  /*for (i = 0; i < GifFile->SWidth; i++) GifRow[i] = GifFile->SBackGroundColor;*/
-  
   /* Scan the content of the GIF file and load the image(s) in: */
   do {
     if (DGifGetRecordType(GifFile, &RecordType) == GIF_ERROR) {
@@ -535,6 +582,9 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
       if (GifFile->SColorMap && !GifFile->Image.ColorMap) {
         i_tags_addn(&img->tags, "gif_background", 0, 
                     GifFile->SBackGroundColor);
+      }
+      if (GifFile->Image.ColorMap) {
+        i_tags_addn(&img->tags, "gif_localmap", 0, 1);
       }
       
       if (got_gce) {
@@ -653,14 +703,15 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
       break;
     case TERMINATE_RECORD_TYPE:
       break;
-    default:		    /* Should be traps by DGifGetRecordType. */
+    default:		    /* Should be trapped by DGifGetRecordType. */
       break;
     }
   } while (RecordType != TERMINATE_RECORD_TYPE);
 
   if (comment) {
     if (*count) {
-      i_tags_add(&(results[*count-1]->tags), "gif_comment", 0, comment, strlen(comment), 0);
+      i_tags_add(&(results[*count-1]->tags), "gif_comment", 0, comment, 
+                 strlen(comment), 0);
     }
     myfree(comment);
   }
