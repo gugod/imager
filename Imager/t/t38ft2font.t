@@ -1,0 +1,107 @@
+#!perl -w
+# Before `make install' is performed this script should be runnable with
+# `make test'. After `make install' it should work as `perl test.pl'
+
+######################### We start with some black magic to print on failure.
+
+# Change 1..1 below to 1..last_test_to_print .
+# (It may become useful if the test is moved to ./t subdirectory.)
+
+BEGIN { $| = 1; print "1..7\n"; }
+END {print "not ok 1\n" unless $loaded;}
+use Imager qw(:all);
+$loaded = 1;
+print "ok 1\n";
+
+init_log("testout/t38ft2font.log",1);
+
+sub skip { 
+  print "ok 2 # skip\n";
+  print "ok 3 # skip\n";
+  malloc_state();
+  exit(0);
+}
+
+if (!(i_has_format("ft2")) ) { skip(); } 
+print "# has ft2\n";
+
+$fontname=$ENV{'TTFONTTEST'}||'./fontfiles/dodge.ttf';
+
+if (! -f $fontname) {
+  print "# cannot find fontfile for truetype test $fontname\n";
+  skip();	
+}
+
+i_init_fonts();
+#     i_tt_set_aa(1);
+
+$bgcolor=i_color_new(255,0,0,0);
+$overlay=Imager::ImgRaw::new(200,70,3);
+
+$ttraw=Imager::Font::FreeType2::i_ft2_new($fontname, 0);
+
+$ttraw or print Imager::_error_as_msg(),"\n";
+#use Data::Dumper;
+#warn Dumper($ttraw);
+
+@bbox=Imager::Font::FreeType2::i_ft2_bbox($ttraw, 50.0, 0, 'XMCLH');
+print "#bbox: ($bbox[0], $bbox[1]) - ($bbox[2], $bbox[3])\n";
+
+Imager::Font::FreeType2::i_ft2_cp($ttraw,$overlay,5,50,1,50.0,50, 'XMCLH',1,1);
+i_draw($overlay,0,50,100,50,$bgcolor);
+
+open(FH,">testout/t38ft2font.ppm") || die "cannot open testout/t38ft2font.ppm\n";
+binmode(FH);
+i_writeppm($overlay,fileno(FH));
+close(FH);
+
+print "ok 2\n";
+
+dotest:
+
+$bgcolor=i_color_set($bgcolor,200,200,200,0);
+$backgr=Imager::ImgRaw::new(500,300,3);
+
+#     i_tt_set_aa(2);
+Imager::Font::FreeType2::i_ft2_text($ttraw,$backgr,100,150,NC(255, 64, 64),200.0,50, 'MAW',1,1);
+Imager::Font::FreeType2::i_ft2_settransform($ttraw, [0.9659, 0.2588, 0, -0.2588, 0.9659, 0 ]);
+Imager::Font::FreeType2::i_ft2_text($ttraw,$backgr,100,150,NC(0, 128, 0),200.0,50, 'MAW',0,1);
+i_draw($backgr, 0,150, 499, 150, NC(0, 0, 255));
+
+open(FH,">testout/t38ft2font2.ppm") || die "cannot open testout/t38ft2font.ppm\n";
+binmode(FH);
+i_writeppm($backgr,fileno(FH));
+close(FH);
+
+print "ok 3\n";
+
+my $oof = Imager::Font->new(file=>$fontname, type=>'ft2', index=>0)
+  or print "not ";
+print "ok 4\n";
+
+my $im = Imager->new(xsize=>400, ysize=>150);
+
+$im->string(font=>$oof,
+            text=>"Via OO",
+            x=>20,
+            y=>20,
+            size=>60,
+            color=>NC(255, 128, 255),
+            aa => 1,
+            align=>0) or print "not ";
+print "ok 5\n";
+$oof->transform(matrix=>[1, 0.1, 0, 0, 1, 0])
+  or print "not ";
+print "ok 6\n";
+$im->string(font=>$oof,
+            text=>"Shear",
+            x=>20,
+            y=>40,
+            size=>60,
+            sizew=>50,
+            channel=>1,
+            aa=>1,
+            align=>1) or print "not ";
+print "ok 7\n";
+$im->write(file=>'testout/t38_oo.ppm')
+  or print "# could not save OO output: ",$im->errstr,"\n";

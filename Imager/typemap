@@ -4,6 +4,7 @@ Imager::Color::Float    T_PTROBJ
 Imager::ImgRaw          T_PTROBJ
 Imager::TTHandle	T_PTROBJ
 Imager::IO              T_PTROBJ
+Imager::Font::FT2       T_PTROBJ
 const char *		T_PV
 float			T_FLOAT
 float*			T_ARRAY

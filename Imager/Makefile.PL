@@ -261,7 +261,7 @@ sub pathcheck {
 sub init {
 
   @definc{'/usr/include'}=();
-  @incs=(qw(/usr/include /usr/local/include /usr/include/freetype /usr/local/include/freetype), split /:/, $INCPATH );
+  @incs=(qw(/usr/include /usr/local/include /usr/include/freetype /usr/local/include/freetype /usr/include/freetype2 /usr/local/include/freetype2), split /:/, $INCPATH );
   @libs=(split(/ /, $Config{'libpth'}), split(/:/, $LIBPATH) );
   if ($^O =~ /win32/i && $Config{cc} =~ /\bcl\b/i) {
     push(@incs, split /;/, $ENV{INCLUDE}) if exists $ENV{INCLUDE};
@@ -380,6 +380,18 @@ Uses the Win32 GDI for rendering text.
 This currently only works on under normal Win32 and cygwin.
 DOCS
 		    };
+  $formats{'freetype2'} = {
+                           order=>'29',
+                           def=>'HAVE_FT2',
+                           inccheck=>sub { lc $_[0] eq 'ft2build.h' },
+                           libcheck=>sub { $_[0] eq "libfreetype$aext" or $_[0] eq "libfreetype.$lext" },
+                           libfiles=>'-lfreetype',
+                           objfiles=>'freetyp2.o',
+                           docs=><<DOCS
+Freetype 2 supports both Truetype and Type 1 fonts, both of which are
+scalable.
+DOCS
+                          };
   # Make fix indent
   for (keys %formats) { $formats{$_}->{docs} =~ s/^\s+/  /mg; }
 }

@@ -24,6 +24,10 @@ typedef i_img*   Imager__ImgRaw;
 typedef TT_Fonthandle* Imager__TTHandle;
 #endif
 
+#ifdef HAVE_FT2
+typedef FT2_Fonthandle* Imager__Font__FT2;
+#endif
+
 typedef struct i_reader_data_tag
 {
   /* presumably a CODE ref or name of a sub */
@@ -818,9 +822,9 @@ i_matrix_transform(im, xsize, ysize, matrix)
         SV *sv1;
         int i;
       CODE:
-        if (!SvROK(ST(3)) || SvTYPE(SvRV(ST(1))) != SVt_PVAV)
+        if (!SvROK(ST(3)) || SvTYPE(SvRV(ST(3))) != SVt_PVAV)
           croak("i_matrix_transform: parameter 4 must be an array ref\n");
-	av=(AV*)SvRV(ST(1));
+	av=(AV*)SvRV(ST(3));
 	len=av_len(av)+1;
         if (len > 9)
           len = 9;
@@ -2762,5 +2766,120 @@ i_wf_cp(face, im, tx, ty, channel, size, text, align, aa)
       OUTPUT:
 	RETVAL
 
+
+#endif
+
+#ifdef HAVE_FT2
+
+MODULE = Imager         PACKAGE = Imager::Font::FT2     PREFIX=FT2_
+
+#define FT2_DESTROY(font) i_ft2_destroy(font)
+
+void
+FT2_DESTROY(font)
+        Imager::Font::FT2 font
+
+MODULE = Imager         PACKAGE = Imager::Font::FreeType2 
+
+Imager::Font::FT2
+i_ft2_new(name, index)
+        char *name
+        int index
+
+undef_int
+i_ft2_setdpi(font, xdpi, ydpi)
+        Imager::Font::FT2 font
+        int xdpi
+        int ydpi
+
+void
+i_ft2_getdpi(font)
+        Imager::Font::FT2 font
+      PREINIT:
+        int xdpi, ydpi;
+      CODE:
+        if (i_ft2_getdpi(font, &xdpi, &ydpi)) {
+          EXTEND(SP, 2);
+          PUSHs(sv_2mortal(newSViv(xdpi)));
+          PUSHs(sv_2mortal(newSViv(ydpi)));
+        }
+
+undef_int
+i_ft2_settransform(font, matrix)
+        Imager::Font::FT2 font
+      PREINIT:
+        double matrix[6];
+        int len;
+        AV *av;
+        SV *sv1;
+        int i;
+      CODE:
+        if (!SvROK(ST(1)) || SvTYPE(SvRV(ST(1))) != SVt_PVAV)
+          croak("i_ft2_settransform: parameter 2 must be an array ref\n");
+	av=(AV*)SvRV(ST(1));
+	len=av_len(av)+1;
+        if (len > 6)
+          len = 6;
+        for (i = 0; i < len; ++i) {
+	  sv1=(*(av_fetch(av,i,0)));
+	  matrix[i] = SvNV(sv1);
+        }
+        for (; i < 6; ++i)
+          matrix[i] = 0;
+        RETVAL = i_ft2_settransform(font, matrix);
+      OUTPUT:
+        RETVAL
+
+void
+i_ft2_bbox(font, cheight, cwidth, text)
+        Imager::Font::FT2 font
+        double cheight
+        double cwidth
+        char *text
+      PREINIT:
+        int bbox[6];
+        int i;
+      PPCODE:
+        if (i_ft2_bbox(font, cheight, cwidth, text, strlen(text), bbox)) {
+          EXTEND(SP, 5);
+          for (i = 0; i < 6; ++i)
+            PUSHs(sv_2mortal(newSViv(bbox[i])));
+        }
+
+undef_int
+i_ft2_text(font, im, tx, ty, cl, cheight, cwidth, text, align, aa)
+        Imager::Font::FT2 font
+        Imager::ImgRaw im
+        int tx
+        int ty
+        Imager::Color cl
+        double cheight
+        double cwidth
+        char *text
+        int align
+        int aa
+      CODE:
+        RETVAL = i_ft2_text(font, im, tx, ty, cl, cheight, cwidth, text,
+                            strlen(text), align, aa);
+      OUTPUT:
+        RETVAL
+
+undef_int
+i_ft2_cp(font, im, tx, ty, channel, cheight, cwidth, text, align, aa)
+        Imager::Font::FT2 font
+        Imager::ImgRaw im
+        int tx
+        int ty
+        int channel
+        double cheight
+        double cwidth
+        char *text
+        int align
+        int aa
+      CODE:
+        RETVAL = i_ft2_cp(font, im, tx, ty, channel, cheight, cwidth, text,
+                          strlen(text), align, aa);
+      OUTPUT:
+        RETVAL
 
 #endif

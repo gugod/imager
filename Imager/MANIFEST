@@ -33,6 +33,7 @@ pnm.c
 filters.c
 feat.c
 font.c
+freetyp2.c	Implements freetype2 font support
 maskimg.c
 palimg.c
 regmach.c
@@ -72,6 +73,8 @@ t/t15color.t
 t/t30t1font.t
 t/t35ttfont.t
 t/t36oofont.t
+t/t37w32font.t		Tests Win32 GDI font support
+t/t38ft2font.t		Tests freetype2 support
 t/t40scale.t
 t/t50basicoo.t
 t/t55trans.t

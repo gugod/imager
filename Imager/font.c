@@ -77,6 +77,11 @@ i_init_fonts() {
   init_tt();
 #endif
 
+#ifdef HAVE_FT2
+  if (!i_ft2_init())
+    return 0;
+#endif
+
   return(1); /* FIXME: Always true - check the return values of the init_t1 and init_tt functions */
 }
 

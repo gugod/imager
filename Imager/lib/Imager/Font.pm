@@ -1,12 +1,47 @@
+
 package Imager::Font;
 
 use Imager::Color;
 use strict;
 use File::Spec;
 
-# This class is a container
-# and works for both truetype and t1 fonts.
+# the aim here is that we can:
+#  - add file based types in one place: here
+#  - make sure we only attempt to create types that exist
+#  - give reasonable defaults
+#  - give the user some control over which types get used
+my %drivers =
+  (
+   tt=>{
+        class=>'Imager::Font::Truetype',
+        module=>'Imager/Font/Truetype.pm',
+        files=>'.*\.ttf$',
+       },
+   t1=>{
+        class=>'Imager::Font::Type1',
+        module=>'Imager/Font/Type1.pm',
+        files=>'.*\.pfb$',
+       },
+   ft2=>{
+         class=>'Imager::Font::FreeType2',
+         module=>'Imager/Font/FreeType2.pm',
+         files=>'.*\.(pfb|ttf|fon)$', # maybe this should be dynamic
+        },
+   w32=>{
+         class=>'Imager::Font::Win32',
+         module=>'Imager/Font/Win32.pm',
+        },
+  );
 
+# this currently should only contain file based types, don't add w32
+my @priority = qw(t1 tt ft2);
+
+# when Imager::Font is loaded, Imager.xs has not been bootstrapped yet
+# this function is called from Imager.pm to finish initialization
+sub __init {
+  @priority = grep Imager::i_has_format($_), @priority;
+  delete @drivers{grep !Imager::i_has_format($_), keys %drivers};
+}
 
 # search method
 # 1. start by checking if file is the parameter
@@ -35,9 +70,15 @@ sub new {
     }
 
     $type=$hsh{'type'};
-    if (!defined($type) or $type !~ m/^(t1|tt)/) {
-      $type='tt' if $file =~ m/\.ttf$/i;
-      $type='t1' if $file =~ m/\.pfb$/i;
+    if (!defined($type) or !$drivers{$type}) {
+      for my $drv (@priority) {
+        undef $type;
+        my $re = $drivers{$drv}{files} or next;
+        if ($file =~ /$re/i) {
+          $type = $drv;
+          last;
+        }
+      }
     }
     if (!defined($type)) {
       $Imager::ERRSTR="Font type not found";
@@ -57,24 +98,8 @@ sub new {
 
   # here we should have the font type or be dead already.
 
-  if ($type eq 't1') {
-    require 'Imager/Font/Type1.pm';
-    return Imager::Font::Type1->new(%hsh);
-  }
-
-  if ($type eq 'tt') {
-    require 'Imager/Font/Truetype.pm';
-    return Imager::Font::Truetype->new(%hsh);
-  }
-
-  if ($type eq 'w32') {
-    require 'Imager/Font/Win32.pm';
-    return Imager::Font::Win32->new(%hsh);
-  }
-  # it would be nice to have some generic mechanism to select the
-  # class
-  
-  return undef;
+  require $drivers{$type}{module};
+  return $drivers{$type}{class}->new(%hsh);
 }
 
 # returns first defined parameter
@@ -135,6 +160,51 @@ sub bounding_box {
   return @box;
 }
 
+sub dpi {
+  my $self = shift;
+
+  # I'm assuming a default of 72 dpi
+  my @old = (72, 72);
+  if (@_) {
+    $Imager::ERRSTR = "Setting dpi not implemented for this font type";
+    return;
+  }
+
+  return @old;
+}
+
+sub transform {
+  my $self = shift;
+
+  my %hsh = @_;
+
+  # this is split into transform() and _transform() so we can 
+  # implement other tags like: degrees=>12, which would build a
+  # 12 degree rotation matrix
+  # but I'll do that later
+  unless ($hsh{matrix}) {
+    $Imager::ERRSTR = "You need to supply a matrix";
+    return;
+  }
+  
+  return $self->_transform(%hsh);
+}
+
+sub _transform {
+  $Imager::ERRSTR = "This type of font cannot be transformed";
+  return;
+}
+
+sub priorities {
+  my $self = shift;
+  my @old = @priority;
+
+  if (@_) {
+    @priority = grep Imager::i_has_format($_), @_;
+  }
+  return @old;
+}
+
 1;
 
 __END__
@@ -191,6 +261,7 @@ this:
   print "Has truetype"      if $Imager::formats{tt};
   print "Has t1 postscript" if $Imager::formats{t1};
   print "Has Win32 fonts"   if $Imager::formats{w32};
+  print "Has Freetype2"     if $Imager::formats{ft2};
 
 =over 4
 
@@ -310,6 +381,26 @@ Sometimes it is necessary to know how much space a string takes before
 rendering it.  The bounding_box() method described earlier can be used
 for that.
 
+=item dpi()
+
+=item dpi(xdpi=>$xdpi, ydpi=>$ydpi)
+
+=item dpi(dpi=>$dpi)
+
+Set retrieve the spatial resolution of the image in dots per inch.
+The default is 72 dpi.
+
+This isn't implemented for all font types yet.
+
+=item transform(matrix=>$matrix)
+
+Applies a transformation to the font, where matrix is an array ref of
+numbers representing a 2 x 3 matrix:
+
+  [  $matrix->[0],  $matrix->[1],  $matrix->[2],
+     $matrix->[3],  $matrix->[4],  $matrix->[5]   ]
+
+Not all font types support transformations, these will return false.
 
 =item logo
 
@@ -324,9 +415,35 @@ Imager::Font->new(file=>"arial.ttf", color=>$blue, aa=>1)
             ->string(text=>"Plan XYZ", border=>5)
             ->write(file=>"xyz.png");
 
-
-
 =back
+
+=head1 DRIVER CONTROL
+
+If you don't supply a 'type' parameter to Imager::Font->new(), but you
+do supply a 'file' parameter, Imager will attempt to guess which font
+driver to used based on the extension of the font file.
+
+Since some formats can be handled by more than one driver, a priority
+list is used to choose which one should be used, if a given format can
+be handled by more than one driver.
+
+The current priority can be retrieved with:
+
+  @drivers = Imager::Font->priorities();
+
+You can set new priorities and save the old priorities with:
+
+  @old = Imager::Font->priorities(@drivers);
+
+If you supply driver names that are not currently supported, they will
+be ignored.
+
+Imager supports both T1Lib and Freetype2 for working with Type 1
+fonts, but currently only T1Lib does any caching, so by default T1Lib
+is given a higher priority.  Since Imager's Freetype2 support can also
+do font transformations, you may want to give that a higher priority:
+
+  my @old = Imager::Font->priorities(qw(tt ft2 t1));
 
 =head1 AUTHOR
 

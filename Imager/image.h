@@ -208,6 +208,26 @@ undef_int i_tt_bbox( TT_Fonthandle *handle, float points,char *txt,int len,int c
 
 #endif  /* End of freetype headers */
 
+#ifdef HAVE_FT2
+
+typedef struct FT2_Fonthandle FT2_Fonthandle;
+extern int i_ft2_init(void);
+extern FT2_Fonthandle * i_ft2_new(char *name, int index);
+extern void i_ft2_destroy(FT2_Fonthandle *handle);
+extern int i_ft2_setdpi(FT2_Fonthandle *handle, int xdpi, int ydpi);
+extern int i_ft2_getdpi(FT2_Fonthandle *handle, int *xdpi, int *ydpi);
+extern int i_ft2_settransform(FT2_Fonthandle *handle, double *matrix);
+extern int i_ft2_bbox(FT2_Fonthandle *handle, double cheight, double cwidth, 
+                      char *text, int len, int *bbox);
+extern int i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, 
+                      i_color *cl, double cheight, double cwidth, 
+                      char *text, int len, int align, int aa);
+extern int i_ft2_cp(FT2_Fonthandle *handle, i_img *im, int tx, int ty, 
+                    int channel, double cheight, double cwidth, 
+                    char *text, int len, int align, int aa);
+
+#endif
+
 #ifdef WIN32
 
 extern int i_wf_bbox(char *face, int size, char *text, int length, int *bbox);
