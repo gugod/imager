@@ -420,6 +420,18 @@ Revision history for Perl extension Imager.
 0.39  pre1
 	- split Imager::Font into a base, *::Type1 and *::Truetype
         - writing faxable tiff now allows 2 and 4 channel images
+        - virtual image interface - 8-bit/sample images
+        - paletted images
+        - 16-bit/sample images
+        - masked images
+        - writing non-8bit images to raw
+        - writing   ''       ''   to tiff
+        - i_convert support for high-bit images and paletted images
+        - i_copy for high-bit and paletted images
+        - tests for rubthru
+        - rubthru can now rub a 2 channel image over a 1 or 3 channel 
+          image
+        - rubthru for high-bit images
 
 =================================================================
 

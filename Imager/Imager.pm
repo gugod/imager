@@ -1185,7 +1185,10 @@ sub rubthrough {
   unless ($self->{IMG}) { $self->{ERRSTR}='empty input image'; return undef; }
   unless ($opts{src} && $opts{src}->{IMG}) { $self->{ERRSTR}='empty input image for source'; return undef; }
 
-  i_rubthru($self->{IMG}, $opts{src}->{IMG}, $opts{tx},$opts{ty});
+  unless (i_rubthru($self->{IMG}, $opts{src}->{IMG}, $opts{tx},$opts{ty})) {
+    $self->{ERRSTR} = $self->_error_as_msg();
+    return undef;
+  }
   return $self;
 }
 
@@ -2446,9 +2449,10 @@ method that does this is rubthrough.
 
   $img->rubthrough(src=>$srcimage,tx=>30,ty=>50); 
 
-That will take the image C<$srcimage> and overlay it with the 
-upper left corner at (30,50).  The C<$srcimage> must be a 4 channel
-image.  The last channel is used as an alpha channel.
+That will take the image C<$srcimage> and overlay it with the upper
+left corner at (30,50).  You can rub 2 or 4 channel images onto a 3
+channel image, or a 2 channel image onto a 1 channel image.  The last
+channel is used as an alpha channel.
 
 
 =head2 Filters

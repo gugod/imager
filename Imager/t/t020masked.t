@@ -6,7 +6,7 @@ use Imager qw(:all :handy);
 #use Data::Dumper;
 $loaded = 1;
 print "ok 1\n";
-init_log("testout/t020masked.t", 1);
+init_log("testout/t020masked.log", 1);
 
 my $base_rgb = Imager::ImgRaw::new(100, 100, 3);
 # put something in there

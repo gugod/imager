@@ -82,6 +82,7 @@ t/t59assem.t
 t/t60dyntest.t
 t/t65crop.t
 t/t66paste.t
+t/t69rubthru.t
 t/t70newgif.t
 t/t75polyaa.t
 t/t90cc.t

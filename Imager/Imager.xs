@@ -784,7 +784,7 @@ i_copy(im,src)
     Imager::ImgRaw     src
 
 
-void
+undef_int
 i_rubthru(im,src,tx,ty)
     Imager::ImgRaw     im
     Imager::ImgRaw     src

@@ -696,31 +696,84 @@ unmodified.
 =cut
 */
 
-void
+int
 i_rubthru(i_img *im,i_img *src,int tx,int ty) {
-  i_color pv, orig, dest;
   int x, y, ttx, tty;
+  int chancount;
+  int chans[3];
+  int alphachan;
+  int ch;
 
   mm_log((1,"i_rubthru(im %p, src %p, tx %d, ty %d)\n", im, src, tx, ty));
+  i_clear_error();
 
-  if (im->channels  != 3) { fprintf(stderr,"Destination is not in rgb mode.\n"); exit(3); }
-  if (src->channels != 4) { fprintf(stderr,"Source is not in rgba mode.\n"); exit(3); }
-
-  ttx = tx;
-  for(x=0; x<src->xsize; x++) {
-    tty=ty;
-    for(y=0;y<src->ysize;y++) {
-      /* fprintf(stderr,"reading (%d,%d) writing (%d,%d).\n",x,y,ttx,tty); */
-      i_gpix(src, x,   y,   &pv);
-      i_gpix(im,  ttx, tty, &orig);
-      dest.rgb.r = (pv.rgba.a*pv.rgba.r+(255-pv.rgba.a)*orig.rgb.r)/255;
-      dest.rgb.g = (pv.rgba.a*pv.rgba.g+(255-pv.rgba.a)*orig.rgb.g)/255;
-      dest.rgb.b = (pv.rgba.a*pv.rgba.b+(255-pv.rgba.a)*orig.rgb.b)/255;
-      i_ppix(im, ttx, tty, &dest);
-      tty++;
-    }
-    ttx++;
+  if (im->channels == 3 && src->channels == 4) {
+    chancount = 3;
+    chans[0] = 0; chans[1] = 1; chans[2] = 2;
+    alphachan = 3;
   }
+  else if (im->channels == 3 && src->channels == 2) {
+    chancount = 3;
+    chans[0] = chans[1] = chans[2] = 0;
+    alphachan = 1;
+  }
+  else if (im->channels == 1 && src->channels == 2) {
+    chancount = 1;
+    chans[0] = 0;
+    alphachan = 1;
+  }
+  else {
+    i_push_error(0, "rubthru can only work where (dest, src) channels are (3,4), (3,2) or (1,2)");
+    return 0;
+  }
+
+  if (im->bits <= 8) {
+    /* if you change this code, please make sure the else branch is
+       changed in a similar fashion - TC */
+    int alpha;
+    i_color pv, orig, dest;
+    ttx = tx;
+    for(x=0; x<src->xsize; x++) {
+      tty=ty;
+      for(y=0;y<src->ysize;y++) {
+        /* fprintf(stderr,"reading (%d,%d) writing (%d,%d).\n",x,y,ttx,tty); */
+        i_gpix(src, x,   y,   &pv);
+        i_gpix(im,  ttx, tty, &orig);
+        alpha = pv.channel[alphachan];
+        for (ch = 0; ch < chancount; ++ch) {
+          dest.channel[ch] = (alpha * pv.channel[chans[ch]]
+                              + (255 - alpha) * orig.channel[ch])/255;
+        }
+        i_ppix(im, ttx, tty, &dest);
+        tty++;
+      }
+      ttx++;
+    }
+  }
+  else {
+    double alpha;
+    i_fcolor pv, orig, dest;
+
+    ttx = tx;
+    for(x=0; x<src->xsize; x++) {
+      tty=ty;
+      for(y=0;y<src->ysize;y++) {
+        /* fprintf(stderr,"reading (%d,%d) writing (%d,%d).\n",x,y,ttx,tty); */
+        i_gpixf(src, x,   y,   &pv);
+        i_gpixf(im,  ttx, tty, &orig);
+        alpha = pv.channel[alphachan];
+        for (ch = 0; ch < chancount; ++ch) {
+          dest.channel[ch] = alpha * pv.channel[chans[ch]]
+                              + (1 - alpha) * orig.channel[ch];
+        }
+        i_ppixf(im, ttx, tty, &dest);
+        tty++;
+      }
+      ttx++;
+    }
+  }
+
+  return 1;
 }
 
 
