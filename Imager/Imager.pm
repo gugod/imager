@@ -3406,7 +3406,7 @@ is converted.  A floating point number stored as a string.
 =item i_aspect_only
 
 If this is non-zero then the values in i_xres and i_yres are treated
-as a ratio only.  If the image format does not support aspect rations
+as a ratio only.  If the image format does not support aspect ratios
 then this is scaled so the smaller value is 72dpi.
 
 =back
