@@ -142,26 +142,34 @@ typedef unsigned short i_sample16_t;
 
 Creates a new 16-bit per sample image.
 */
-i_img *i_img_16_new(int x, int y, int ch) {
-  i_img *im;
-  
+i_img *i_img_16_new_low(i_img *im, int x, int y, int ch) {
   mm_log((1,"i_img_16_new(x %d, y %d, ch %d)\n", x, y, ch));
   
+  *im = IIM_base_16bit_direct;
+  i_tags_new(&im->tags);
+  im->xsize = x;
+  im->ysize = y;
+  im->channels = ch;
+  im->bytes = x * y * ch * 2;
+  im->ext_data = NULL;
+  im->idata = mymalloc(im->bytes);
+  if (im->idata) {
+    memset(im->idata, 0, im->bytes);
+  }
+  else {
+    i_tags_destroy(&im->tags);
+    im = NULL;
+  }
+  
+  return im;
+}
+
+i_img *i_img_16_new(int x, int y, int ch) {
+  i_img *im;
+
   im = mymalloc(sizeof(i_img));
   if (im) {
-    *im = IIM_base_16bit_direct;
-    i_tags_new(&im->tags);
-    im->xsize = x;
-    im->ysize = y;
-    im->channels = ch;
-    im->bytes = x * y * ch * 2;
-    im->ext_data = NULL;
-    im->idata = mymalloc(im->bytes);
-    if (im->idata) {
-      memset(im->idata, 0, im->bytes);
-    }
-    else {
-      i_tags_destroy(&im->tags);
+    if (!i_img_16_new_low(im, x, y, ch)) {
       myfree(im);
       im = NULL;
     }

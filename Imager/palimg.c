@@ -32,6 +32,7 @@ static int i_ppal_p(i_img *pm, int l, int r, int y, i_palidx *vals);
 static int i_addcolor_p(i_img *im, i_color *color);
 static int i_getcolor_p(i_img *im, int i, i_color *color);
 static int i_colorcount_p(i_img *im);
+static int i_maxcolors_p(i_img *im);
 static int i_findcolor_p(i_img *im, i_color *color, i_palidx *entry);
 static int i_destroy_p(i_img *im);
 
@@ -63,13 +64,14 @@ static i_img IIM_base_8bit_pal =
   i_addcolor_p, /* i_f_addcolor */
   i_getcolor_p, /* i_f_getcolor */
   i_colorcount_p, /* i_f_colorcount */
+  i_maxcolors_p, /* i_f_maxcolors */
   i_findcolor_p, /* i_f_findcolor */
 
   i_destroy_p, /* i_f_destroy */
 };
 
 /*
-=item i_img_pal_new(int x, int y, int channels, int maxpal)
+=item i_img_pal_new_low(i_img *im, int x, int y, int channels, int maxpal)
 
 Creates a new paletted image.
 
@@ -77,8 +79,7 @@ Currently 0 < maxpal <= 256
 
 =cut
 */
-i_img *i_img_pal_new(int x, int y, int channels, int maxpal) {
-  i_img *im;
+i_img *i_img_pal_new_low(i_img *im, int x, int y, int channels, int maxpal) {
   i_img_pal_ext *palext;
 
   i_clear_error();
@@ -111,6 +112,12 @@ i_img *i_img_pal_new(int x, int y, int channels, int maxpal) {
   im->ysize = y;
   
   return im;
+}
+
+i_img *i_img_pal_new(int x, int y, int channels, int maxpal) {
+  i_img *im = mymalloc(sizeof(i_img));
+
+  return i_img_pal_new_low(im, x, y, channels, maxpal);
 }
 
 /*
@@ -483,6 +490,15 @@ static int color_eq(i_img *im, i_color *c1, i_color *c2) {
 */
 int i_colorcount_p(i_img *im) {
   return PALEXT(im)->count;
+}
+
+/*
+=item i_maxcolors_p(i_img *im)
+
+=cut
+*/
+int i_maxcolors_p(i_img *im) {
+  return PALEXT(im)->alloc;
 }
 
 /*

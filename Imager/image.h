@@ -102,6 +102,8 @@ int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
   (((im)->i_f_getcolor) ? ((im)->i_f_getcolor)((im), (index), (color)) : 0)
 #define i_colorcount(im) \
   (((im)->i_f_colorcount) ? ((im)->i_f_colorcount)(im) : -1)
+#define i_maxcolors(im) \
+  (((im)->i_f_maxcolors) ? ((im)->i_f_maxcolors)(im) : -1)
 #define i_findcolor(im, color, entry) \
   (((im)->i_f_findcolor) ? ((im)->i_f_findcolor)((im), (color), (entry)) : 0)
 
@@ -392,11 +394,13 @@ extern i_palidx *quant_translate(i_quantize *quant, i_img *img);
 extern void quant_transparent(i_quantize *quant, i_palidx *indices, i_img *img, i_palidx trans_index);
 
 extern i_img *i_img_pal_new(int x, int y, int channels, int maxpal);
+extern i_img *i_img_pal_new_low(i_img *im, int x, int y, int channels, int maxpal);
 extern i_img *i_img_to_pal(i_img *src, i_quantize *quant);
 extern i_img *i_img_to_rgb(i_img *src);
 extern i_img *i_img_masked_new(i_img *targ, i_img *mask, int x, int y, 
                                int w, int h);
 extern i_img *i_img_16_new(int x, int y, int ch);
+extern i_img *i_img_16_new_low(i_img *im, int x, int y, int ch);
 
 #ifdef HAVE_LIBJPEG
 i_img* i_readjpeg(int fd,char** iptc_itext,int *tlength);

@@ -100,6 +100,7 @@ typedef int (*i_f_ppal_t)(i_img *im, int x, int r, int y, i_palidx *vals);
 typedef int (*i_f_addcolor_t)(i_img *im, i_color *);
 typedef int (*i_f_getcolor_t)(i_img *im, int i, i_color *);
 typedef int (*i_f_colorcount_t)(i_img *im);
+typedef int (*i_f_maxcolors_t)(i_img *im);
 typedef int (*i_f_findcolor_t)(i_img *im, i_color *color, i_palidx *entry);
 
 typedef int (*i_f_destroy_t)(i_img *im);
@@ -135,6 +136,7 @@ struct i_img_ {
   i_f_addcolor_t i_f_addcolor;
   i_f_getcolor_t i_f_getcolor;
   i_f_colorcount_t i_f_colorcount;
+  i_f_maxcolors_t i_f_maxcolors;
   i_f_findcolor_t i_f_findcolor;
 
   i_f_destroy_t i_f_destroy;

@@ -84,6 +84,7 @@ static i_img IIM_base_masked =
   i_addcolor_forward, /* i_f_addcolor */
   i_getcolor_forward, /* i_f_getcolor */
   i_colorcount_forward, /* i_f_colorcount */
+  i_maxcolors_forward, /* i_f_maxcolors */
   i_findcolor_forward, /* i_f_findcolor */
 
   i_destroy_masked, /* i_f_destroy */

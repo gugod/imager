@@ -225,10 +225,13 @@ static i_img IIM_base_8bit_direct =
   NULL, /* i_f_addcolor */
   NULL, /* i_f_getcolor */
   NULL, /* i_f_colorcount */
+  NULL, /* i_f_maxcolors */
   NULL, /* i_f_findcolor */
+
+  NULL, /* i_f_destroy */
 };
 
-static void set_8bit_direct(i_img *im) {
+/*static void set_8bit_direct(i_img *im) {
   im->i_f_ppix = i_ppix_d;
   im->i_f_ppixf = i_ppixf_d;
   im->i_f_plin = i_plin_d;
@@ -243,7 +246,7 @@ static void set_8bit_direct(i_img *im) {
   im->i_f_getcolor = NULL;
   im->i_f_colorcount = NULL;
   im->i_f_findcolor = NULL;
-}
+  }*/
 
 /*
 =item IIM_new(x, y, ch)
@@ -576,24 +579,39 @@ If x1 > x2 or y1 > y2 then the corresponding co-ordinates are swapped.
 
 void
 i_copyto(i_img *im, i_img *src, int x1, int y1, int x2, int y2, int tx, int ty) {
-  i_color pv;
   int x, y, t, ttx, tty;
-
+  
   if (x2<x1) { t=x1; x1=x2; x2=t; }
   if (y2<y1) { t=y1; y1=y2; y2=t; }
-
+  
   mm_log((1,"i_copyto(im* %p, src %p, x1 %d, y1 %d, x2 %d, y2 %d, tx %d, ty %d)\n",
 	  im, src, x1, y1, x2, y2, tx, ty));
-
+  
+  if (im->bits == i_8_bits) {
+    i_color pv;
     tty = ty;
     for(y=y1; y<y2; y++) {
-    ttx = tx;
-    for(x=x1; x<x2; x++) {
-      i_gpix(src, x,   y,   &pv);
-      i_ppix(im,  ttx, tty, &pv);
-      ttx++;
+      ttx = tx;
+      for(x=x1; x<x2; x++) {
+        i_gpix(src, x,   y,   &pv);
+        i_ppix(im,  ttx, tty, &pv);
+        ttx++;
+      }
+      tty++;
     }
-    tty++;
+  }
+  else {
+    i_fcolor pv;
+    tty = ty;
+    for(y=y1; y<y2; y++) {
+      ttx = tx;
+      for(x=x1; x<x2; x++) {
+        i_gpixf(src, x,   y,   &pv);
+        i_ppixf(im,  ttx, tty, &pv);
+        ttx++;
+      }
+      tty++;
+    }
   }
 }
 
@@ -607,21 +625,57 @@ Copies the contents of the image I<src> over the image I<im>.
 
 void
 i_copy(i_img *im, i_img *src) {
-  i_color *pv;
   int y, y1, x1;
 
   mm_log((1,"i_copy(im* %p,src %p)\n", im, src));
 
   x1 = src->xsize;
   y1 = src->ysize;
-  i_img_empty_ch(im, x1, y1, src->channels);
-  pv = mymalloc(sizeof(i_color) * x1);
-  
-  for (y = 0; y < y1; ++y) {
-    i_glin(src, 0, x1, y, pv);
-    i_plin(im, 0, x1, y, pv);
+  if (src->type == i_direct_type) {
+    if (src->bits == i_8_bits) {
+      i_color *pv;
+      i_img_empty_ch(im, x1, y1, src->channels);
+      pv = mymalloc(sizeof(i_color) * x1);
+      
+      for (y = 0; y < y1; ++y) {
+        i_glin(src, 0, x1, y, pv);
+        i_plin(im, 0, x1, y, pv);
+      }
+      myfree(pv);
+    }
+    else {
+      i_fcolor *pv;
+      i_img_16_new_low(im, x1, y1, src->channels);
+      pv = mymalloc(sizeof(i_fcolor) * x1);
+      for (y = 0; y < y1; ++y) {
+        i_glinf(src, 0, x1, y, pv);
+        i_plinf(im, 0, x1, y, pv);
+      }
+      myfree(pv);
+    }
   }
-  myfree(pv);
+  else {
+    i_color temp;
+    int index;
+    int count;
+    i_palidx *vals;
+
+    /* paletted image */
+    i_img_pal_new(im, x1, y1, src->channels, i_maxcolors(src));
+    /* copy across the palette */
+    count = i_colorcount(im);
+    for (i = 0; i < count; ++i) {
+      i_getcolor(src, i, &temp);
+      i_addcolor(im, &temp);
+    }
+
+    vals = mymalloc(sizeof(i_palidx) * x1);
+    for (y = 0; y < y1; ++y) {
+      i_gpal(src, 0, x1, y, vals);
+      i_ppal(im, 0, x1, y, vals);
+    }
+    myfree(vals);
+  }
 }
 
 
@@ -1647,6 +1701,15 @@ int i_getcolor_forward(i_img *im, int i, i_color *color) {
 */
 int i_colorcount_forward(i_img *im) {
   return i_colorcount(*(i_img **)im->ext_data);
+}
+
+/*
+=item i_maxcolors_forward(i_img *im)
+
+=cut
+*/
+int i_maxcolors_forward(i_img *im) {
+  return i_maxcolors(*(i_img **)im->ext_data);
 }
 
 /*
