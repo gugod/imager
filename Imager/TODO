@@ -34,6 +34,7 @@ New Features:
 
 - Finish antialiased filled polygon function.
 
+- freetype 2 support
 
 Clean up:
 - Make sure everything is doable with the OO interface
