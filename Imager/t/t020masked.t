@@ -1,6 +1,6 @@
 #!perl -w
 
-BEGIN { $| = 1; print "1..34\n"; }
+BEGIN { $| = 1; print "1..35\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager qw(:all :handy);
 #use Data::Dumper;
@@ -127,6 +127,17 @@ for my $test (@color_tests) {
   color_cmp(Imager::i_get_pixel($m_img->{IMG}, 5, 5), $green) == 0 
     or print "not ";
   print "ok 34\n";
+
+  # older versions destroyed the Imager::ImgRaw object manually in 
+  # Imager::DESTROY rather than letting Imager::ImgRaw::DESTROY 
+  # destroy the object
+  # so we test here by destroying the base and mask objects and trying 
+  # to draw to the masked wrapper
+  # you may need to test with ElectricFence to trigger the problem
+  undef $mask;
+  undef $base;
+  $m_img->box(color=>$blue, filled=>1);
+  print "ok 35\n";
 }
 
 sub color_test {

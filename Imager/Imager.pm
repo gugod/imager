@@ -888,7 +888,11 @@ sub DESTROY {
   my $self=shift;
   #    delete $instances{$self};
   if (defined($self->{IMG})) {
-    i_img_destroy($self->{IMG});
+    # the following is now handled by the XS DESTROY method for
+    # Imager::ImgRaw object
+    # Re-enabling this will break virtual images
+    # tested for in t/t020masked.t
+    # i_img_destroy($self->{IMG});
     undef($self->{IMG});
   } else {
 #    print "Destroy Called on an empty image!\n"; # why did I put this here??
@@ -1754,6 +1758,9 @@ For improved color precision you can use the bits parameter to specify
 
 Note that as of this writing all functions should work on 16-bit
 images, but at only 8-bit/channel precision.
+
+Currently only 8 and 16/bit per channel image types are available,
+this may change later.
 
 Color objects are created by calling the Imager::Color->new()
 method:
