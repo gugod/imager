@@ -31,6 +31,7 @@ void  bndcheck_all(void);
 void malloc_state(void);
 void* mymalloc(int size);
 void myfree(void *p);
+void *myrealloc(void *p, size_t newsize);
 
 #endif /* IMAGER_MALLOC_DEBUG */
 

@@ -1516,10 +1516,24 @@ i_readgif_callback(...)
             PUSHs(newRV_noinc((SV*)ct));
         }
 
-
-
-
-
+void
+i_readgif_multi(fd)
+        int     fd
+      PREINIT:
+        i_img **imgs;
+        int count;
+        int i;
+      PPCODE:
+        imgs = i_readgif_multi(fd, &count);
+        if (imgs) {
+          EXTEND(SP, count);
+          for (i = 0; i < count; ++i) {
+            SV *sv = sv_newmortal();
+            sv_setref_pv(sv, "Imager::ImgRaw", (void *)imgs[i]);
+            PUSHs(sv);
+          }
+          myfree(imgs);
+        }
 
 #endif
 
@@ -2484,3 +2498,138 @@ i_img_16_new(x, y, ch)
         int x
         int y
         int ch
+
+undef_int
+i_tags_addn(im, name, code, idata)
+        Imager::ImgRaw im
+        int     code
+        int     idata
+      PREINIT:
+        char *name;
+        STRLEN len;
+      CODE:
+        if (SvOK(ST(1)))
+          name = SvPV(ST(1), len);
+        else
+          name = NULL;
+        RETVAL = i_tags_addn(&im->tags, name, code, idata);
+      OUTPUT:
+        RETVAL
+
+undef_int
+i_tags_add(im, name, code, data, idata)
+        Imager::ImgRaw  im
+        int code
+        int idata
+      PREINIT:
+        char *name;
+        char *data;
+        STRLEN len;
+      CODE:
+        if (SvOK(ST(1)))
+          name = SvPV(ST(1), len);
+        else
+          name = NULL;
+        if (SvOK(ST(3)))
+          name = SvPV(ST(3), len);
+        else {
+          data = NULL;
+          len = 0;
+        }
+        RETVAL = i_tags_add(&im->tags, name, code, data, len, idata);
+      OUTPUT:
+        RETVAL
+
+SV *
+i_tags_find(im, name, start)
+        Imager::ImgRaw  im
+        char *name
+        int start
+      PREINIT:
+        int entry;
+      CODE:
+        if (i_tags_find(&im->tags, name, start, &entry)) {
+          if (entry == 0)
+            ST(0) = sv_2mortal(newSVpv("0 but true", 0));
+          else
+            ST(0) = sv_2mortal(newSViv(entry));
+        } else {
+          ST(0) = &PL_sv_undef;
+        }
+
+SV *
+i_tags_findn(im, code, start)
+        Imager::ImgRaw  im
+        int             code
+        int             start
+      PREINIT:
+        int entry;
+      CODE:
+        if (i_tags_findn(&im->tags, code, start, &entry)) {
+          if (entry == 0)
+            ST(0) = sv_2mortal(newSVpv("0 but true", 0));
+          else
+            ST(0) = sv_2mortal(newSViv(entry));
+        }
+        else
+          ST(0) = &PL_sv_undef;
+
+undef_int
+i_tags_delete(im, entry)
+        Imager::ImgRaw  im
+        int             entry
+      CODE:
+        RETVAL = i_tags_delete(&im->tags, entry);
+      OUTPUT:
+        RETVAL
+
+undef_int
+i_tags_delbyname(im, name)
+        Imager::ImgRaw  im
+        char *          name
+      CODE:
+        RETVAL = i_tags_delbyname(&im->tags, name);
+      OUTPUT:
+        RETVAL
+
+undef_int
+i_tags_delbycode(im, code)
+        Imager::ImgRaw  im
+        int             code
+      CODE:
+        RETVAL = i_tags_delbycode(&im->tags, code);
+      OUTPUT:
+        RETVAL
+
+void
+i_tags_get(im, index)
+        Imager::ImgRaw  im
+        int             index
+      PPCODE:
+        if (index >= 0 && index < im->tags.count) {
+          i_img_tag *entry = im->tags.tags + index;
+          EXTEND(SP, 5);
+        
+          if (entry->name) {
+            PUSHs(sv_2mortal(newSVpv(entry->name, 0)));
+          }
+          else {
+            PUSHs(&PL_sv_undef);
+          }
+          PUSHs(sv_2mortal(newSViv(entry->code)));
+          if (entry->data) {
+            PUSHs(sv_2mortal(newSVpvn(entry->data, entry->size)));
+          }
+          else {
+            PUSHs(&PL_sv_undef);
+          }
+          PUSHs(sv_2mortal(newSViv(entry->idata)));
+        }
+
+int
+i_tags_count(im)
+        Imager::ImgRaw  im
+      CODE:
+        RETVAL = im->tags.count;
+      OUTPUT:
+        RETVAL

@@ -60,17 +60,11 @@ typedef enum {
   i_double_bits = 64
 } i_img_bits_t;
 
-typedef enum {
-  itt_double,
-  itt_text
-} i_tag_type;
-
 typedef struct {
   char *name; /* name of a given tag, might be NULL */
   int code; /* number of a given tag, -1 if it has no meaning */
   char *data; /* value of a given tag if it's not an int, may be NULL */
   int size; /* size of the data */
-  i_tag_type type;
   int idata; /* value of a given tag if data is NULL */
 } i_img_tag;
 

@@ -180,7 +180,7 @@ mymalloc(int size) {
 
   mm_log((1, "mymalloc(size %d)\n", size));
   if ( (buf = malloc(size)) == NULL ) {
-    mm_log((1, "mymalloc: unable to malloc\n", size));
+    mm_log((1, "mymalloc: unable to malloc %d\n", size));
     fprintf(stderr,"Unable to malloc.\n"); exit(3);
   }
   return buf;
@@ -189,6 +189,19 @@ mymalloc(int size) {
 void
 myfree(void *p) {
   free(p);
+}
+
+void *
+myrealloc(void *block, size_t size) {
+  void *result;
+
+  mm_log((1, "myrealloc(block %p, size %u)\n", block, size));
+  if ((result = realloc(block, size)) == NULL) {
+    mm_log((1, "myrealloc: out of memory\n"));
+    fprintf(stderr, "Out of memory.\n");
+    exit(3);
+  }
+  return result;
 }
 
 #endif /* IMAGER_MALLOC_DEBUG */

@@ -1,5 +1,5 @@
 $|=1;
-print "1..26\n";
+print "1..34\n";
 use Imager qw(:all);
 
 init_log("testout/t105gif.log",1);
@@ -21,7 +21,7 @@ i_box_filled($timg, 0, 0, 20, 20, $green);
 i_box_filled($timg, 2, 2, 18, 18, $trans);
 
 if (!i_has_format("gif")) {
-	for (1..26) { print "ok $_ # skip no gif support\n"; }
+  for (1..31) { print "ok $_ # skip no gif support\n"; }
 } else {
     open(FH,">testout/t105.gif") || die "Cannot open testout/t105.gif\n";
     binmode(FH);
@@ -356,6 +356,53 @@ EOS
     else {
       print "ok 26 # skipped\n";
     }
+
+    # test reading a multi-image file into multiple images
+    open FH, "< testimg/screen2.gif"
+      or die "Cannot open testimg/screen2.gif: $!";
+    binmode FH;
+    @imgs = Imager::i_readgif_multi(fileno(FH))
+      or print "not ";
+    print "ok 27\n";
+    close FH;
+    @imgs == 2 or print "not ";
+    print "ok 28\n";
+    for my $img (@imgs) {
+      unless (Imager::i_img_type($img) == 1) {
+        print "not ";
+        last;
+      }
+    }
+    print "ok 29\n";
+    Imager::i_colorcount($imgs[0]) == 4 or print "not ";
+    print "ok 30\n";
+    Imager::i_colorcount($imgs[1]) == 2 or print "not ";
+    print "ok 31\n";
+    Imager::i_tags_find($imgs[0], "gif_left", 0) or print "not ";
+    print "ok 32\n";
+    my @tags = map {[ Imager::i_tags_get($imgs[1], $_) ]} 0..Imager::i_tags_count($imgs[1])-1;
+    my ($left) = grep $_->[0] eq 'gif_left', @tags;
+    $left && $left->[3] == 3 or print "not ";
+    print "ok 33\n";
+    open FH, "< testout/t105_mult_pall.gif"
+      or die "Cannot open testout/t105_mult_pall.gif: $!";
+    binmode FH;
+    @imgs = Imager::i_readgif_multi(fileno(FH))
+      or print "not ";
+    print "ok 34\n";
+    use Data::Dumper;
+    # build a big map of all tags for all images
+    @tags = 
+      map { 
+        my $im = $_; 
+        [ 
+         map { join ",", map { defined() ? $_ : "undef" } Imager::i_tags_get($im, $_) } 
+         0..Imager::i_tags_count($_)-1 
+        ] 
+      } @imgs;
+    my $dump = Dumper(\@tags);
+    $dump =~ s/^/# /mg;
+    print "# tags from gif\n", $dump;
 }
 
 sub test_readgif_cb {

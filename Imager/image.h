@@ -433,6 +433,7 @@ undef_int i_writepng(i_img *im,int fd);
 i_img *i_readgif(int fd, int **colour_table, int *colours);
 i_img *i_readgif_scalar(char *data, int length, int **colour_table, int *colours);
 i_img *i_readgif_callback(i_read_callback_t callback, char *userdata, int **colour_table, int *colours);
+extern i_img **i_readgif_multi(int fd, int *count);
 undef_int i_writegif(i_img *im,int fd,int colors,int pixdev,int fixedlen,i_color fixed[]);
 undef_int i_writegifmc(i_img *im,int fd,int colors);
 undef_int i_writegifex(i_img *im,int fd);
@@ -538,7 +539,7 @@ extern int i_failed(int code, char const *msg);
 extern void i_tags_new(i_img_tags *tags);
 extern int i_tags_addn(i_img_tags *tags, char *name, int code, int idata);
 extern int i_tags_add(i_img_tags *tags, char *name, int code, char *data, 
-                      int size, i_tag_type type, int idata);
+                      int size, int idata);
 extern void i_tags_destroy(i_img_tags *tags);
 extern int i_tags_find(i_img_tags *tags, char *name, int start, int *entry);
 extern int i_tags_findn(i_img_tags *tags, int code, int start, int *entry);

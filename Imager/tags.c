@@ -9,9 +9,9 @@ tags.c - functions for manipulating an images tags list
   i_tags_new(&tags);
   i_tags_destroy(&tags);
   i_tags_addn(&tags, "name", code, idata);
-  i_tags_add(&tags, "name", code, data, data_size, data_type, idata);
+  i_tags_add(&tags, "name", code, data, data_size, idata);
   if (i_tags_find(&tags, name, start, &entry)) { found }
-  if (i_tags_find(&tags, code, start, &entry)) { found }
+  if (i_tags_findn(&tags, code, start, &entry)) { found }
   i_tags_delete(&tags, index);
   count = i_tags_delbyname(tags, name);
   count = i_tags_delbycode(tags, code);
@@ -77,7 +77,7 @@ Returns non-zero on success.
 */
 
 int i_tags_addn(i_img_tags *tags, char *name, int code, int idata) {
-  return i_tags_add(tags, name, code, NULL, 0, itt_text, idata);
+  return i_tags_add(tags, name, code, NULL, 0, idata);
 }
 
 /*
@@ -93,7 +93,7 @@ Returns non-zero on success.
 */
 
 int i_tags_add(i_img_tags *tags, char *name, int code, char *data, int size, 
-	       i_tag_type type, int idata) {
+	       int idata) {
   i_img_tag work = {0};
   if (tags->tags == NULL) {
     int alloc = 10;
@@ -125,8 +125,8 @@ int i_tags_add(i_img_tags *tags, char *name, int code, char *data, int size,
     }
   }
   work.code = code;
-  work.type = type;
   work.idata = idata;
+  tags->tags[tags->count++] = work;
 
   return 1;
 }
