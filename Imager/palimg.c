@@ -36,7 +36,7 @@ static int i_maxcolors_p(i_img *im);
 static int i_findcolor_p(i_img *im, i_color *color, i_palidx *entry);
 static int i_setcolors_p(i_img *im, int index, i_color *color, int count);
 
-static int i_destroy_p(i_img *im);
+static void i_destroy_p(i_img *im);
 
 static i_img IIM_base_8bit_pal =
 {
@@ -210,7 +210,7 @@ i_img *i_img_to_pal(i_img *src, i_quantize *quant) {
 =cut
 */
 i_img *i_img_to_rgb(i_img *src) {
-  i_img *im = i_img_empty_ch(NULL, src->xsize, src->ysize, im->channels);
+  i_img *im = i_img_empty_ch(NULL, src->xsize, src->ysize, src->channels);
   i_img_rgb_convert(im, src);
 
   return im;
@@ -223,7 +223,7 @@ Destroys data related to a paletted image.
 
 =cut
 */
-static int i_destroy_p(i_img *im) {
+static void i_destroy_p(i_img *im) {
   if (im) {
     i_img_pal_ext *palext = im->ext_data;
     if (palext) {
