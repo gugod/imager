@@ -45,7 +45,11 @@ Imager::Font::Win32 - uses Win32 GDI services for text output
 
 =head1 SYNOPSIS
 
-  my $font = Imager::Font->new(file=>"Arial");
-  
+  my $font = Imager::Font->new(face=>"Arial");
+
+=head1 DESCRIPTION
+
+Implements font support using Win32 GDI calls.  See Imager::Font for 
+usage information.
 
 =cut
