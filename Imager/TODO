@@ -67,12 +67,6 @@ Clean up:
 - should the interlace option for reading raw images have 
   symbolic names in the OO interface?
 
-- in Makefile.PL, MY::postamble has a rule:
-   dyntest.(MYEXTLIB) : dynfilt/Makefile
-	    cd dynfilt && $(MAKE) $(PASTHRU)
-  which has caused a problem on one BSD system.  It probably is meant to
-  be $(MYEXTLIB), but older versions didn't have that either.
-
 
 
 Format specific issues:

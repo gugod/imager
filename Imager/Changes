@@ -450,6 +450,9 @@ Revision history for Perl extension Imager.
           matrix transformer is exposed, but still needs testing (as XS)
           and needs an OO interface, hopefully with some helper tools,
           like the preset interface with ->convert().
+        - MY::postamble() in Makefile.PL included a broken rule 
+          (Makefile.PL 1.13.2.5)
+          
 
 =================================================================
 
