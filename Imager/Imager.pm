@@ -1776,7 +1776,10 @@ sub string {
     return;
   }
 
-  $input{font}->draw(image=>$self, %input);
+  unless ($input{font}->draw(image=>$self, %input)) {
+    $self->{ERRSTR} = $self->_error_as_msg();
+    return;
+  }
 
   return $self;
 }

@@ -132,6 +132,9 @@ sub draw {
     return undef;
   }
   $input{align} = _first($input{align}, 1);
+  $input{utf8} = _first($input{utf8}, $self->{utf8}, 0);
+  $input{vlayout} = _first($input{vlayout}, $self->{vlayout}, 0);
+
   $self->_draw(%input);
 }
 
@@ -193,6 +196,10 @@ sub transform {
 sub _transform {
   $Imager::ERRSTR = "This type of font cannot be transformed";
   return;
+}
+
+sub utf8 {
+  return 0;
 }
 
 sub priorities {
@@ -372,6 +379,62 @@ values in a font, such as color and size.  If parameters are passed to
 the string function they are used instead of the defaults stored in
 the font.
 
+The following parameters can be supplied to the string() method:
+
+=over
+
+=item string
+
+The text to be rendered.  If this isn't present the 'text' parameter
+is used.  If neither is present the call will fail.
+
+=item aa
+
+If non-zero the output will be anti-aliased.
+
+=item x
+
+=item y
+
+The start point for rendering the text.  See the align parameter.
+
+=item align
+
+If non-zero the point supplied in (x,y) will be on the base-line, if
+zero then (x,y) will be at the top-left of the first character.
+
+=item channel
+
+If present, the text will be written to the specified channel of the
+image and the color parameter will be ignore.
+
+=item color
+
+The color to draw the text in.
+
+=item size
+
+The point-size to draw the text at.
+
+=item sizew
+
+For drivers that support it, the width to draw the text at.  Defaults
+to be value of the 'size' parameter.
+
+=item utf8
+
+For drivers that support it, treat the string as UTF8 encoded.  For
+versions of perl that support Unicode (5.6 and later), this will be
+enabled automatically if the 'string' parameter is already a UTF8
+string. See L<UTF8> for more information.
+
+=item vlayout
+
+For drivers that support it, draw the text vertically.  Note: I
+haven't found a font that has the appropriate metrics yet.
+
+=back
+
 If string() is called with the C<channel> parameter then the color
 isn't used and the font is drawn in only one channel of the image.
 This can be quite handy to create overlays.  See the examples for tips
@@ -402,6 +465,10 @@ numbers representing a 2 x 3 matrix:
 
 Not all font types support transformations, these will return false.
 
+It's possible that a driver will disable hinting if you use a
+transformation, to prevent discontinuities in the transformations.
+See the end of the test script t/t38ft2font.t for an example.
+
 =item logo
 
 This method doesn't exist yet but is under consideration.  It would mostly
@@ -416,6 +483,57 @@ Imager::Font->new(file=>"arial.ttf", color=>$blue, aa=>1)
             ->write(file=>"xyz.png");
 
 =back
+
+=head1 UTF8
+
+There are 2 ways of rendering Unicode characters with Imager:
+
+=over
+
+=item *
+
+For versions of perl that support it, use perl's native UTF8 strings.
+This is the simplest method.
+
+=item *
+
+Hand build your own UTF8 encoded strings.  Only recommended if your
+version of perl has no UTF8 support.
+
+=back
+
+Imager won't construct characters for you, so if want to output
+unicode character 00C3 "LATIN CAPITAL LETTER A WITH DIAERESIS", and
+your font doesn't support it, Imager will I<not> build it from 0041
+"LATIN CAPITAL LETTER A" and 0308 "COMBINING DIAERESIS".
+
+=head2 Native UTF8 Support
+
+If your version of perl supports UTF8 and the driver supports UTF8,
+just use the $im->string() method, and it should do the right thing.
+
+=head2 Build your own
+
+In this case you need to build your own UTF8 encoded characters.
+
+For example:
+
+ $x = pack("C*", 0xE2, 0x80, 0x90); # character code 0x2010 HYPHEN
+
+You need to be be careful with versions of perl that have UTF8
+support, since your string may end up doubly UTF8 encoded.
+
+For example:
+
+ $x = "A\xE2\x80\x90\x41\x{2010}";
+ substr($x, -1, 0) = ""; 
+ # at this point $x is has the UTF8 flag set, but has 5 characters,
+ # none, of which is the constructed UTF8 character
+
+The test script t/t38ft2font.t has a small example of this after the 
+comment:
+
+  # an attempt using emulation of UTF8
 
 =head1 DRIVER CONTROL
 

@@ -217,14 +217,17 @@ extern void i_ft2_destroy(FT2_Fonthandle *handle);
 extern int i_ft2_setdpi(FT2_Fonthandle *handle, int xdpi, int ydpi);
 extern int i_ft2_getdpi(FT2_Fonthandle *handle, int *xdpi, int *ydpi);
 extern int i_ft2_settransform(FT2_Fonthandle *handle, double *matrix);
+extern int i_ft2_sethinting(FT2_Fonthandle *handle, int hinting);
 extern int i_ft2_bbox(FT2_Fonthandle *handle, double cheight, double cwidth, 
                       char *text, int len, int *bbox);
 extern int i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, 
                       i_color *cl, double cheight, double cwidth, 
-                      char *text, int len, int align, int aa);
+                      char *text, int len, int align, int aa, int vlayout,
+                      int utf8);
 extern int i_ft2_cp(FT2_Fonthandle *handle, i_img *im, int tx, int ty, 
                     int channel, double cheight, double cwidth, 
-                    char *text, int len, int align, int aa);
+                    char *text, int len, int align, int aa, int vlayout, 
+                    int utf8);
 
 #endif
 

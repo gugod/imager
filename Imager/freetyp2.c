@@ -40,6 +40,7 @@ Truetype, Type1 and Windows FNT.
 #include FT_FREETYPE_H
 
 static void ft2_push_message(int code);
+static unsigned long utf8_advance(char **p, int *len);
 
 static FT_Library library;
 
@@ -69,6 +70,7 @@ i_ft2_init(void) {
 struct FT2_Fonthandle {
   FT_Face face;
   int xdpi, ydpi;
+  int hint;
 
   /* used to adjust so we can align the draw point to the top-left */
   double matrix[6];
@@ -91,6 +93,8 @@ i_ft2_new(char *name, int index) {
   FT_Error error;
   FT2_Fonthandle *result;
   FT_Face face;
+  double matrix[6] = { 1, 0, 0,
+                       0, 1, 0 };
 
   i_clear_error();
   error = FT_New_Face(library, name, index, &face);
@@ -103,7 +107,16 @@ i_ft2_new(char *name, int index) {
   result = mymalloc(sizeof(FT2_Fonthandle));
   result->face = face;
   result->xdpi = result->ydpi = 72;
+
+  /* by default we disable hinting on a call to i_ft2_settransform()
+     if we don't do this, then the hinting can the untransformed text
+     to be a different size to the transformed text.
+     Obviously we have it initially enabled.
+  */
+  result->hint = 1; 
+
   /* I originally forgot this:   :/ */
+  /*i_ft2_settransform(result, matrix); */
   result->matrix[0] = 1; result->matrix[1] = 0; result->matrix[2] = 0;
   result->matrix[3] = 0; result->matrix[4] = 1; result->matrix[5] = 0;
 
@@ -195,7 +208,23 @@ i_ft2_settransform(FT2_Fonthandle *handle, double *matrix) {
 
   for (i = 0; i < 6; ++i)
     handle->matrix[i] = matrix[i];
+  handle->hint = 0;
 
+  return 1;
+}
+
+/*
+=item i_ft2_sethinting(FT2_Fonthandle *handle, int hinting)
+
+If hinting is non-zero then glyph hinting is enabled, otherwise disabled.
+
+i_ft2_settransform() disables hinting to prevent distortions in
+gradual text transformations.
+
+=cut
+*/
+int i_ft2_sethinting(FT2_Fonthandle *handle, int hinting) {
+  handle->hint = hinting;
   return 1;
 }
 
@@ -279,6 +308,208 @@ i_ft2_bbox(FT2_Fonthandle *handle, double cheight, double cwidth,
   return 1;
 }
 
+/*
+=item transform_box(FT2_FontHandle *handle, int bbox[4])
+
+bbox contains coorinates of a the top-left and bottom-right of a bounding 
+box relative to a point.
+
+This is then transformed and the values in bbox[4] are the top-left
+and bottom-right of the new bounding box.
+
+This is meant to provide the bounding box of a transformed character
+box.  The problem is that if the character was round and is rotated,
+the real bounding box isn't going to be much different from the
+original, but this function will return a _bigger_ bounding box.  I
+suppose I could work my way through the glyph outline, but that's
+too much hard work.
+
+=cut
+*/
+void ft2_transform_box(FT2_Fonthandle *handle, int bbox[4]) {
+  double work[8];
+  double *matrix = handle->matrix;
+  int i;
+  
+  work[0] = matrix[0] * bbox[0] + matrix[1] * bbox[1];
+  work[1] = matrix[3] * bbox[0] + matrix[4] * bbox[1];
+  work[2] = matrix[0] * bbox[2] + matrix[1] * bbox[1];
+  work[3] = matrix[3] * bbox[2] + matrix[4] * bbox[1];
+  work[4] = matrix[0] * bbox[0] + matrix[1] * bbox[3];
+  work[5] = matrix[3] * bbox[0] + matrix[4] * bbox[3];
+  work[6] = matrix[0] * bbox[2] + matrix[1] * bbox[3];
+  work[7] = matrix[3] * bbox[2] + matrix[4] * bbox[3];
+
+  bbox[0] = floor(min(min(work[0], work[2]),min(work[4], work[6])));
+  bbox[1] = floor(min(min(work[1], work[3]),min(work[5], work[7])));
+  bbox[2] = ceil(max(max(work[0], work[2]),max(work[4], work[6])));
+  bbox[3] = ceil(max(max(work[1], work[3]),max(work[5], work[7])));
+}
+
+/*
+=item expand_bounds(int bbox[4], int bbox2[4]) 
+
+Treating bbox[] and bbox2[] as 2 bounding boxes, produces a new
+bounding box in bbox[] that encloses both.
+
+=cut
+*/
+static void expand_bounds(int bbox[4], int bbox2[4]) {
+  bbox[0] = min(bbox[0], bbox2[0]);
+  bbox[1] = min(bbox[1], bbox2[1]);
+  bbox[2] = max(bbox[2], bbox2[2]);
+  bbox[3] = max(bbox[3], bbox2[3]);
+}
+
+/*
+=item i_ft2_bbox_r(FT2_Fonthandle *handle, double cheight, double cwidth, char *text, int len, int vlayout, int utf8, int *bbox)
+
+Retrieves bounding box information for the font at the given 
+character width and height.
+
+This version finds the rectangular bounding box of the glyphs, with
+the text as transformed by the transformation matrix.  As with
+i_ft2_bbox (bbox[0], bbox[1]) will the the offset from the start of
+the topline to the top-left of the bounding box.  Unlike i_ft2_bbox()
+this could be near the bottom left corner of the box.
+
+(bbox[4], bbox[5]) is the offset to the start of the baseline.
+(bbox[6], bbox[7]) is the offset from the start of the baseline to the
+end of the baseline.
+
+Returns non-zero on success.
+
+=cut
+*/
+int
+i_ft2_bbox_r(FT2_Fonthandle *handle, double cheight, double cwidth, 
+           char *text, int len, int vlayout, int utf8, int *bbox) {
+  FT_Error error;
+  int width;
+  int index;
+  int first;
+  int ascent = 0, descent = 0;
+  int glyph_ascent, glyph_descent;
+  FT_Glyph_Metrics *gm;
+  int start = 0;
+  int work[4];
+  int bounds[4];
+  double x = 0, y = 0;
+  int i;
+  FT_GlyphSlot slot;
+  int advx, advy;
+  int loadFlags = FT_LOAD_DEFAULT;
+
+  if (vlayout)
+    loadFlags |= FT_LOAD_VERTICAL_LAYOUT;
+
+  error = FT_Set_Char_Size(handle->face, cwidth*64, cheight*64, 
+                           handle->xdpi, handle->ydpi);
+  if (error) {
+    ft2_push_message(error);
+    i_push_error(0, "setting size");
+  }
+
+  first = 1;
+  width = 0;
+  while (len) {
+    unsigned long c;
+    if (utf8) {
+      c = utf8_advance(&text, &len);
+      if (c == ~0UL) {
+        i_push_error(0, "invalid UTF8 character");
+        return 0;
+      }
+    }
+    else {
+      c = (unsigned char)*text++;
+      --len;
+    }
+
+    index = FT_Get_Char_Index(handle->face, c);
+    error = FT_Load_Glyph(handle->face, index, loadFlags);
+    if (error) {
+      ft2_push_message(error);
+      i_push_errorf(0, "loading glyph for character \\x%02x (glyph 0x%04X)", 
+                    c, index);
+      return 0;
+    }
+    slot = handle->face->glyph; 
+    gm = &slot->metrics;
+
+    /* these probably don't mean much for vertical layouts */
+    glyph_ascent = gm->horiBearingY / 64;
+    glyph_descent = glyph_ascent - gm->height/64;
+    if (vlayout) {
+      work[0] = gm->vertBearingX;
+      work[1] = gm->vertBearingY;
+    }
+    else {
+      work[0] = gm->horiBearingX;
+      work[1] = gm->horiBearingY;
+    }
+    work[2] = gm->width  + work[0];
+    work[3] = work[1] - gm->height;
+    if (first) {
+      bbox[4] = work[0] * handle->matrix[0] + work[1] * handle->matrix[1] + handle->matrix[2];
+      bbox[5] = work[0] * handle->matrix[3] + work[1] * handle->matrix[4] + handle->matrix[5];
+      bbox[4] = bbox[4] < 0 ? -(-bbox[4] + 32)/64 : (bbox[4] + 32) / 64;
+      bbox[5] /= 64;
+    }
+    ft2_transform_box(handle, work);
+    for (i = 0; i < 4; ++i)
+      work[i] /= 64;
+    work[0] += x;
+    work[1] += y;
+    work[2] += x;
+    work[3] += y;
+    if (first) {
+      for (i = 0; i < 4; ++i)
+        bounds[i] = work[i];
+      ascent = glyph_ascent;
+      descent = glyph_descent;
+      first = 0;
+    }
+    else {
+      expand_bounds(bounds, work);
+    }
+    x += slot->advance.x / 64;
+    y += slot->advance.y / 64;
+    
+    if (glyph_ascent > ascent)
+      ascent = glyph_ascent;
+    if (glyph_descent > descent)
+      descent = glyph_descent;
+
+    if (len == 0) {
+      /* last character 
+       handle the case where the right the of the character overlaps the 
+       right*/
+      /*int rightb = gm->horiAdvance - gm->horiBearingX - gm->width;
+      if (rightb < 0)
+      width -= rightb / 64;*/
+    }
+  }
+
+  /* at this point bounds contains the bounds relative to the CP,
+     and x, y hold the final position relative to the CP */
+  /*bounds[0] -= x;
+  bounds[1] -= y;
+  bounds[2] -= x;
+  bounds[3] -= y;*/
+
+  bbox[0] = bounds[0];
+  bbox[1] = -bounds[3];
+  bbox[2] = bounds[2];
+  bbox[3] = -bounds[1];
+  bbox[6] = x;
+  bbox[7] = -y;
+
+  return 1;
+}
+
+
+
 static int
 make_bmp_map(FT_Bitmap *bitmap, unsigned char *map);
 
@@ -302,7 +533,7 @@ Returns non-zero on success.
 int
 i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, i_color *cl,
            double cheight, double cwidth, char *text, int len, int align,
-           int aa) {
+           int aa, int vlayout, int utf8) {
   FT_Error error;
   int index;
   FT_Glyph_Metrics *gm;
@@ -315,6 +546,17 @@ i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, i_color *cl,
   int last_grays = -1;
   int ch;
   i_color pel;
+  int loadFlags = FT_LOAD_DEFAULT;
+
+  if (vlayout) {
+    if (!FT_HAS_VERTICAL(handle->face)) {
+      i_push_error(0, "face has no vertical metrics");
+      return 0;
+    }
+    loadFlags |= FT_LOAD_VERTICAL_LAYOUT;
+  }
+  if (!handle->hint)
+    loadFlags |= FT_LOAD_NO_HINTING;
 
   /* set the base-line based on the string ascent */
   if (!i_ft2_bbox(handle, cheight, cwidth, text, len, bbox))
@@ -325,11 +567,22 @@ i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, i_color *cl,
     tx -= bbox[0] * handle->matrix[0] + bbox[5] * handle->matrix[1] + handle->matrix[2];
     ty += bbox[0] * handle->matrix[3] + bbox[5] * handle->matrix[4] + handle->matrix[5];
   }
-  while (len--) {
-    int c = (unsigned char)*text++;
+  while (len) {
+    unsigned long c;
+    if (utf8) {
+      c = utf8_advance(&text, &len);
+      if (c == ~0UL) {
+        i_push_error(0, "invalid UTF8 character");
+        return 0;
+      }
+    }
+    else {
+      c = (unsigned char)*text++;
+      --len;
+    }
     
     index = FT_Get_Char_Index(handle->face, c);
-    error = FT_Load_Glyph(handle->face, index, FT_LOAD_DEFAULT);
+    error = FT_Load_Glyph(handle->face, index, loadFlags);
     if (error) {
       ft2_push_message(error);
       i_push_errorf(0, "loading glyph for character \\x%02x (glyph 0x%04X)", 
@@ -371,20 +624,21 @@ i_ft2_text(FT2_Fonthandle *handle, i_img *im, int tx, int ty, i_color *cl,
         if (!make_bmp_map(&slot->bitmap, map))
           return 0;
         last_mode = slot->bitmap.pixel_mode;
-      last_grays = slot->bitmap.num_grays;
+        last_grays = slot->bitmap.num_grays;
       }
       
-      /* we'll need to do other processing for monochrome */
       bmp = slot->bitmap.buffer;
       for (y = 0; y < slot->bitmap.rows; ++y) {
         for (x = 0; x < slot->bitmap.width; ++x) {
           int value = map[bmp[x]];
-          i_gpix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
-          for (ch = 0; ch < im->channels; ++ch) {
-            pel.channel[ch] = 
-              ((255-value)*pel.channel[ch] + value * cl->channel[ch]) / 255;
+          if (value) {
+            i_gpix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
+            for (ch = 0; ch < im->channels; ++ch) {
+              pel.channel[ch] = 
+                ((255-value)*pel.channel[ch] + value * cl->channel[ch]) / 255;
+            }
+            i_ppix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
           }
-          i_ppix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
         }
         bmp += slot->bitmap.pitch;
       }
@@ -414,96 +668,43 @@ Returns non-zero on success.
 
 =cut
 */
-int
+
 i_ft2_cp(FT2_Fonthandle *handle, i_img *im, int tx, int ty, int channel,
          double cheight, double cwidth, char *text, int len, int align,
-         int aa) {
-  FT_Error error;
-  int index;
-  FT_Glyph_Metrics *gm;
-  int bbox[6];
-  FT_GlyphSlot slot;
+         int aa, int vlayout, int utf8) {
+  int bbox[8];
+  i_img *work;
+  i_color cl, cl2;
   int x, y;
-  unsigned char *bmp;
-  unsigned char map[256];
-  char last_mode = ft_pixel_mode_none; 
-  int last_grays = -1;
-  i_color pel;
 
-  /* set the base-line based on the string ascent */
-  if (!i_ft2_bbox(handle, cheight, cwidth, text, len, bbox))
+  if (vlayout && !FT_HAS_VERTICAL(handle->face)) {
+    i_push_error(0, "face has no vertical metrics");
+    return 0;
+  }
+
+  if (!i_ft2_bbox_r(handle, cheight, cwidth, text, len, vlayout, utf8, bbox))
+    return 0;
+
+  work = i_img_empty_ch(NULL, bbox[2]-bbox[0]+1, bbox[3]-bbox[1]+1, 1);
+  cl.channel[0] = 255;
+  if (!i_ft2_text(handle, work, -bbox[0], -bbox[1], &cl, cheight, cwidth, 
+                  text, len, 1, aa, vlayout, utf8))
     return 0;
 
   if (!align) {
-    /* this may need adjustment */
-    tx -= bbox[0] * handle->matrix[0] + bbox[5] * handle->matrix[1] + handle->matrix[2];
-    ty += bbox[0] * handle->matrix[3] + bbox[5] * handle->matrix[4] + handle->matrix[5];
+    tx -= bbox[4];
+    ty += bbox[5];
   }
-  while (len--) {
-    int c = (unsigned char)*text++;
-    
-    index = FT_Get_Char_Index(handle->face, c);
-    error = FT_Load_Glyph(handle->face, index, FT_LOAD_DEFAULT);
-    if (error) {
-      ft2_push_message(error);
-      i_push_errorf(0, "loading glyph for character \\x%02x (glyph 0x%04X)", 
-                    c, index);
-      return 0;
+  
+  /* render to the specified channel */
+  /* this will be sped up ... */
+  for (y = 0; y < work->ysize; ++y) {
+    for (x = 0; x < work->xsize; ++x) {
+      i_gpix(work, x, y, &cl);
+      i_gpix(im, tx + x + bbox[0], ty + y + bbox[1], &cl2);
+      cl2.channel[channel] = cl.channel[0];
+      i_ppix(im, tx + x + bbox[0], ty + y + bbox[1], &cl2);
     }
-    slot = handle->face->glyph;
-    gm = &slot->metrics;
-
-    error = FT_Render_Glyph(slot, aa ? ft_render_mode_normal : ft_render_mode_mono);
-    if (error) {
-      ft2_push_message(error);
-      i_push_errorf(0, "rendering glyph 0x%04X (character \\x%02X)");
-      return 0;
-    }
-    if (slot->bitmap.pixel_mode == ft_pixel_mode_mono) {
-      bmp = slot->bitmap.buffer;
-      for (y = 0; y < slot->bitmap.rows; ++y) {
-        int pos = 0;
-        int bit = 0x80;
-        for (x = 0; x < slot->bitmap.width; ++x) {
-          i_gpix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
-          pel.channel[channel] = bmp[pos] & bit ? 255 : 0;  
-          i_ppix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
-
-
-          bit >>= 1;
-          if (bit == 0) {
-            bit = 0x80;
-            ++pos;
-          }
-        }
-        bmp += slot->bitmap.pitch;
-      }
-    }
-    else {
-      /* grey scale or something we can treat as greyscale */
-      /* we create a map to convert from the bitmap values to 0-255 */
-      if (last_mode != slot->bitmap.pixel_mode 
-          || last_grays != slot->bitmap.num_grays) {
-        if (!make_bmp_map(&slot->bitmap, map))
-          return 0;
-        last_mode = slot->bitmap.pixel_mode;
-        last_grays = slot->bitmap.num_grays;
-      }
-      
-      /* we'll need to do other processing for monochrome */
-      bmp = slot->bitmap.buffer;
-      for (y = 0; y < slot->bitmap.rows; ++y) {
-        for (x = 0; x < slot->bitmap.width; ++x) {
-          i_gpix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
-          pel.channel[channel] = map[bmp[x]];
-          i_ppix(im, tx+x+slot->bitmap_left, ty+y-slot->bitmap_top, &pel);
-        }
-        bmp += slot->bitmap.pitch;
-      }
-    }
-
-    tx += slot->advance.x / 64;
-    ty -= slot->advance.y / 64;
   }
 
   return 1;
@@ -572,6 +773,83 @@ make_bmp_map(FT_Bitmap *bitmap, unsigned char *map) {
     map[i] = i * 255 / (bitmap->num_grays - 1);
 
   return 1;
+}
+
+struct utf8_size {
+  int mask, expect;
+  int size;
+};
+
+struct utf8_size utf8_sizes[] =
+{
+  { 0x80, 0x00, 1 },
+  { 0xE0, 0xC0, 2 },
+  { 0xF0, 0xE0, 3 },
+  { 0xF8, 0xF0, 4 },
+};
+
+/*
+=item utf8_advance(char **p, int *len)
+
+Retreive a UTF8 character from the stream.
+
+Modifies *p and *len to indicate the consumed characters.
+
+This doesn't support the extended UTF8 encoding used by later versions
+of Perl.
+
+=cut
+*/
+
+unsigned long utf8_advance(char **p, int *len) {
+  unsigned char c;
+  int i, ci, clen = 0;
+  unsigned char codes[3];
+  if (*len == 0)
+    return ~0UL;
+  c = *(*p)++; --*len;
+
+  for (i = 0; i < sizeof(utf8_sizes)/sizeof(*utf8_sizes); ++i) {
+    if ((c & utf8_sizes[i].mask) == utf8_sizes[i].expect) {
+      clen = utf8_sizes[i].size;
+    }
+  }
+  if (clen == 0 || *len < clen-1) {
+    --*p; ++*len;
+    return ~0UL;
+  }
+
+  /* check that each character is well formed */
+  i = 1;
+  ci = 0;
+  while (i < clen) {
+    if (((*p)[ci] & 0xC0) != 0x80) {
+      --*p; ++*len;
+      return ~0UL;
+    }
+    codes[ci] = (*p)[ci];
+    ++ci; ++i;
+  }
+  *p += clen-1; *len -= clen-1;
+  if (c & 0x80) {
+    if ((c & 0xE0) == 0xC0) {
+      return ((c & 0x1F) << 6) + (codes[0] & 0x3F);
+    }
+    else if ((c & 0xF0) == 0xE0) {
+      return ((c & 0x0F) << 12) | ((codes[0] & 0x3F) << 6) | (codes[1] & 0x3f);
+    }
+    else if ((c & 0xF8) == 0xF0) {
+      return ((c & 0x07) << 18) | ((codes[0] & 0x3F) << 12) 
+              | ((codes[1] & 0x3F) << 6) | (codes[2] & 0x3F);
+    }
+    else {
+      *p -= clen; *len += clen;
+      return ~0UL;
+    }
+  }
+  else {
+    return c;
+  }
 }
 
 /*

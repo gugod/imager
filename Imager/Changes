@@ -464,6 +464,11 @@ Revision history for Perl extension Imager.
         - support for setting the resolution when writing to PNG
         - retrieve physical resolution to tags when reading from PNG
         - found an XS bug in the interface to i_tags_add()
+        - fixed handling of writing text to a channel with freetype2 
+          (sometimes the edge of a character would damage the edge of the 
+          previous character)
+        - some utf8 support for freetype2
+        - some vertical layout support for freetype2
 
 =================================================================
 
