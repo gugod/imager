@@ -38,11 +38,11 @@ int CC2C[PNG_COLOR_MASK_PALETTE|PNG_COLOR_MASK_COLOR|PNG_COLOR_MASK_ALPHA];
 
 
 /*
-png_set_read_fn(png_structp read_ptr, voidp read_io_ptr, png_rw_ptr read_data_fn)
-png_set_write_fn(png_structp write_ptr, voidp write_io_ptr, png_rw_ptr write_data_fn,
-png_flush_ptr output_flush_fn);
-voidp read_io_ptr = png_get_io_ptr(read_ptr);
-voidp write_io_ptr = png_get_io_ptr(write_ptr);
+  png_set_read_fn(png_structp read_ptr, voidp read_io_ptr, png_rw_ptr read_data_fn)
+  png_set_write_fn(png_structp write_ptr, voidp write_io_ptr, png_rw_ptr write_data_fn,
+  png_flush_ptr output_flush_fn);
+  voidp read_io_ptr = png_get_io_ptr(read_ptr);
+  voidp write_io_ptr = png_get_io_ptr(write_ptr);
 */
 
 struct png_scalar_info {
@@ -73,7 +73,7 @@ user_read_data(png_structp png_ptr,png_bytep data, png_size_t length) {
 /*
 static void
 user_write_data(png_structp png_ptr, png_bytep data, png_uint_32 length) {
-   FIXME: implement these 
+FIXME: implement these 
 }
 
 static void
@@ -129,7 +129,7 @@ i_readpng(int fd) {
   FILE *fp;
   unsigned int sig_read;
 
-  sig_read=0;
+  sig_read = 0;
 
   if ((fp = fdopen(fd,"r")) == NULL) {
     mm_log((1,"can't fdopen.\n"));
@@ -181,7 +181,7 @@ i_readpng(int fd) {
   
   mm_log((1,
 	  "png_get_IHDR results: width %d, height %d, bit_depth %d,color_type %d,interlace_type %d\n",
-	  width,height,bit_depth,color_type,interlace_type));
+	  width, height, bit_depth, color_type, interlace_type));
 
   CC2C[PNG_COLOR_TYPE_GRAY]=1;
   CC2C[PNG_COLOR_TYPE_PALETTE]=3;
@@ -190,11 +190,8 @@ i_readpng(int fd) {
   CC2C[PNG_COLOR_TYPE_GRAY_ALPHA]=2;
 
   channels=CC2C[color_type];
+  mm_log((1,"channels %d\n", channels));
   
-  mm_log((1,"channels %d\n",channels));
-  
-  im=i_img_empty_ch(NULL,width,height,channels);
-
   /**** Set up the data transformations you want.  Note that these are all
    **** optional.  Only call them if you want/need them.  Many of the
    **** transformations only work on specific types of images, and many
@@ -204,11 +201,7 @@ i_readpng(int fd) {
   /* tell libpng to strip 16 bit/color files down to 8 bits/color */
   png_set_strip_16(png_ptr);
   
-  /* Strip alpha bytes from the input data without combining with the
-   * background (not recommended).
-   */
-  /*  png_set_strip_alpha(png_ptr); */
-  
+ 
   /* Extract multiple pixels with bit depths of 1, 2, and 4 from a single
    * byte into separate bytes (useful for paletted and grayscale images).
    */
@@ -224,17 +217,33 @@ i_readpng(int fd) {
   /* Expand paletted or RGB images with transparency to full alpha channels
    * so the data will be available as RGBA quartets.
    */
-  if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_set_expand(png_ptr);
+
+  if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+    channels++;
+    mm_log((1, "image has transparency, adding alpha: channels = %d\n", channels));
+    png_set_expand(png_ptr);
+  }
   
+  /* Strip alpha bytes from the input data without combining with the
+   * background (not recommended).
+   */
+  /*
+    if ( (color_type != PNG_COLOR_TYPE_RGB_ALPHA) && (color_type != PNG_COLOR_TYPE_GRAY_ALPHA) )
+    png_set_strip_alpha(png_ptr);
+  */
   number_passes = png_set_interlace_handling(png_ptr);
 
   mm_log((1,"number of passes=%d\n",number_passes));
   
   png_read_update_info(png_ptr, info_ptr);
-  for (pass = 0; pass < number_passes; pass++)
-    for (y = 0; y < height; y++) { png_read_row(png_ptr,(png_bytep) &(im->data[channels*width*y]), NULL); }
-  /* read rest of file, and get additional chunks in info_ptr - REQUIRED */
 
+  im = i_img_empty_ch(NULL, width, height, channels);
+  for (pass = 0; pass < number_passes; pass++)
+    for (y = 0; y < height; y++) {
+      png_read_row(png_ptr,(png_bytep) &(im->data[channels*width*y]), NULL);
+    }
+  /* read rest of file, and get additional chunks in info_ptr - REQUIRED */
+  
   png_read_end(png_ptr, info_ptr); 
   /* clean up after the read, and free any memory allocated - REQUIRED */
   png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
@@ -389,7 +398,13 @@ i_readpng_scalar(char *data, int length) {
   png_set_packing(png_ptr);
   if (color_type == PNG_COLOR_TYPE_PALETTE) png_set_expand(png_ptr);
   if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) png_set_expand(png_ptr);
-  if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) png_set_expand(png_ptr);
+
+  if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)) {
+    channels++;
+    mm_log((1, "image has transparency, adding alpha: channels = %d\n", channels));
+    png_set_expand(png_ptr);
+  }
+
   number_passes = png_set_interlace_handling(png_ptr);
   mm_log((1,"number of passes=%d\n",number_passes));
   png_read_update_info(png_ptr, info_ptr);

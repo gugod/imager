@@ -32,6 +32,7 @@ Some of these functions are internal.
 
 #define XAXIS 0
 #define YAXIS 1
+#define XYAXIS 2
 
 #define minmax(a,b,i) ( ((a>=i)?a: ( (b<=i)?b:i   )) )
 
@@ -53,16 +54,16 @@ Return a new color object with values passed to it.
 
 i_color *
 ICL_new_internal(unsigned char r,unsigned char g,unsigned char b,unsigned char a) {
-  i_color *cl=NULL;
+  i_color *cl = NULL;
 
-  mm_log((1,"ICL_new_internal(r %d,g %d,b %d,a %d)\n",cl,r,g,b,a));
+  mm_log((1,"ICL_new_internal(r %d,g %d,b %d,a %d)\n", r, g, b, a));
 
   if ( (cl=mymalloc(sizeof(i_color))) == NULL) m_fatal(2,"malloc() error\n");
-  cl->rgba.r=r;
-  cl->rgba.g=g;
-  cl->rgba.b=b;
-  cl->rgba.a=a;
-  mm_log((1,"(0x%x) <- ICL_new_internal\n",cl));
+  cl->rgba.r = r;
+  cl->rgba.g = g;
+  cl->rgba.b = b;
+  cl->rgba.a = a;
+  mm_log((1,"(%p) <- ICL_new_internal\n",cl));
   return cl;
 }
 
@@ -83,7 +84,7 @@ ICL_new_internal(unsigned char r,unsigned char g,unsigned char b,unsigned char a
 
 i_color *
 ICL_set_internal(i_color *cl,unsigned char r,unsigned char g,unsigned char b,unsigned char a) {
-  mm_log((1,"ICL_set_internal(cl* 0x%x,r %d,g %d,b %d,a %d)\n",cl,r,g,b,a));
+  mm_log((1,"ICL_set_internal(cl* %p,r %d,g %d,b %d,a %d)\n",cl,r,g,b,a));
   if (cl == NULL)
     if ( (cl=mymalloc(sizeof(i_color))) == NULL)
       m_fatal(2,"malloc() error\n");
@@ -91,7 +92,7 @@ ICL_set_internal(i_color *cl,unsigned char r,unsigned char g,unsigned char b,uns
   cl->rgba.g=g;
   cl->rgba.b=b;
   cl->rgba.a=a;
-  mm_log((1,"(0x%x) <- ICL_set_internal\n",cl));
+  mm_log((1,"(%p) <- ICL_set_internal\n",cl));
   return cl;
 }
 
@@ -129,7 +130,7 @@ Dump color information to log - strictly for debugging.
 
 void
 ICL_info(i_color *cl) {
-  mm_log((1,"i_color_info(cl* 0x%x)\n",cl));
+  mm_log((1,"i_color_info(cl* %p)\n",cl));
   mm_log((1,"i_color_info: (%d,%d,%d,%d)\n",cl->rgba.r,cl->rgba.g,cl->rgba.b,cl->rgba.a));
 }
 
@@ -145,7 +146,7 @@ Destroy ancillary data for Color object.
 
 void
 ICL_DESTROY(i_color *cl) {
-  mm_log((1,"ICL_DESTROY(cl* 0x%x)\n",cl));
+  mm_log((1,"ICL_DESTROY(cl* %p)\n",cl));
   myfree(cl);
 }
 
@@ -165,14 +166,14 @@ IIM_new(int x,int y,int ch) {
 
   im=i_img_empty_ch(NULL,x,y,ch);
   
-  mm_log((1,"(0x%x) <- IIM_new\n",im));
+  mm_log((1,"(%p) <- IIM_new\n",im));
   return im;
 }
 
 
 void
 IIM_DESTROY(i_img *im) {
-  mm_log((1,"IIM_DESTROY(im* 0x%x)\n",im));
+  mm_log((1,"IIM_DESTROY(im* %p)\n",im));
   /*   myfree(cl); */
 }
 
@@ -205,9 +206,11 @@ i_img_new() {
 
   im->i_f_ppix=i_ppix_d;
   im->i_f_gpix=i_gpix_d;
+  im->i_f_plin=i_plin_d;
+  im->i_f_glin=i_glin_d;
   im->ext_data=NULL;
   
-  mm_log((1,"(0x%x) <- i_img_struct\n",im));
+  mm_log((1,"(%p) <- i_img_struct\n",im));
   return im;
 }
 
@@ -225,24 +228,26 @@ Re-new image reference (assumes 3 channels)
 
 i_img *
 i_img_empty(i_img *im,int x,int y) {
-  mm_log((1,"i_img_empty(*im 0x%x,x %d,y %d)\n",im,x,y));
+  mm_log((1,"i_img_empty(*im %p, x %d, y %d)\n",im, x, y));
   if (im==NULL)
     if ( (im=mymalloc(sizeof(i_img))) == NULL)
       m_fatal(2,"malloc() error\n");
   
-  im->xsize=x;
-  im->ysize=y;
-  im->channels=3;
-  im->ch_mask=MAXINT;
+  im->xsize    = x;
+  im->ysize    = y;
+  im->channels = 3;
+  im->ch_mask  = MAXINT;
   im->bytes=x*y*im->channels;
-  if ( (im->data=mymalloc(im->bytes)) == NULL) m_fatal(2,"malloc() error\n"); 
-  memset(im->data,0,(size_t)im->bytes);
+  if ( (im->data = mymalloc(im->bytes)) == NULL) m_fatal(2,"malloc() error\n"); 
+  memset(im->data, 0, (size_t)im->bytes);
 
-  im->i_f_ppix=i_ppix_d;
-  im->i_f_gpix=i_gpix_d;
-  im->ext_data=NULL;
+  im->i_f_ppix = i_ppix_d;
+  im->i_f_gpix = i_gpix_d;
+  im->i_f_plin = i_plin_d;
+  im->i_f_glin = i_glin_d;
+  im->ext_data = NULL;
   
-  mm_log((1,"(0x%x) <- i_img_empty\n",im));
+  mm_log((1,"(%p) <- i_img_empty\n", im));
   return im;
 }
 
@@ -252,8 +257,8 @@ i_img_empty(i_img *im,int x,int y) {
 Re-new image reference 
 
    im - Image pointer
-   x - xsize of destination image
-   y - ysize of destination image
+   x  - xsize of destination image
+   y  - ysize of destination image
    ch - number of channels
 
 =cut
@@ -261,24 +266,26 @@ Re-new image reference
 
 i_img *
 i_img_empty_ch(i_img *im,int x,int y,int ch) {
-  mm_log((1,"i_img_empty_ch(*im 0x%x,x %d,y %d,ch %d)\n",im,x,y,ch));
-  if (im==NULL)
+  mm_log((1,"i_img_empty_ch(*im %p, x %d, y %d, ch %d)\n", im, x, y, ch));
+  if (im == NULL)
     if ( (im=mymalloc(sizeof(i_img))) == NULL)
       m_fatal(2,"malloc() error\n");
   
-  im->xsize=x;
-  im->ysize=y;
-  im->channels=ch;
-  im->ch_mask=MAXINT;
+  im->xsize    = x;
+  im->ysize    = y;
+  im->channels = ch;
+  im->ch_mask  = MAXINT;
   im->bytes=x*y*im->channels;
   if ( (im->data=mymalloc(im->bytes)) == NULL) m_fatal(2,"malloc() error\n"); 
   memset(im->data,0,(size_t)im->bytes);
   
-  im->i_f_ppix=i_ppix_d;
-  im->i_f_gpix=i_gpix_d;
-  im->ext_data=NULL;
+  im->i_f_ppix = i_ppix_d;
+  im->i_f_gpix = i_gpix_d;
+  im->i_f_plin = i_plin_d;
+  im->i_f_glin = i_glin_d;
+  im->ext_data = NULL;
   
-  mm_log((1,"(0x%x) <- i_img_empty_ch\n",im));
+  mm_log((1,"(%p) <- i_img_empty_ch\n",im));
   return im;
 }
 
@@ -296,13 +303,15 @@ void
 i_img_exorcise(i_img *im) {
   mm_log((1,"i_img_exorcise(im* 0x%x)\n",im));
   if (im->data != NULL) { myfree(im->data); }
-  im->data=NULL;
-  im->xsize=0;
-  im->ysize=0;
-  im->channels=0;
+  im->data     = NULL;
+  im->xsize    = 0;
+  im->ysize    = 0;
+  im->channels = 0;
 
   im->i_f_ppix=i_ppix_d;
   im->i_f_gpix=i_gpix_d;
+  im->i_f_plin=i_plin_d;
+  im->i_f_glin=i_glin_d;
   im->ext_data=NULL;
 }
 
@@ -348,15 +357,15 @@ i_img_info(i_img *im,int *info) {
   if (im != NULL) {
     mm_log((1,"i_img_info: xsize=%d ysize=%d channels=%d mask=%ud\n",im->xsize,im->ysize,im->channels,im->ch_mask));
     mm_log((1,"i_img_info: data=0x%d\n",im->data));
-    info[0]=im->xsize;
-    info[1]=im->ysize;
-    info[2]=im->channels;
-    info[3]=im->ch_mask;
+    info[0] = im->xsize;
+    info[1] = im->ysize;
+    info[2] = im->channels;
+    info[3] = im->ch_mask;
   } else {
-    info[0]=0;
-    info[1]=0;
-    info[2]=0;
-    info[3]=0;
+    info[0] = 0;
+    info[1] = 0;
+    info[2] = 0;
+    info[3] = 0;
   }
 }
 
@@ -403,7 +412,7 @@ range.
 =cut
 */
 int
-i_ppix(i_img *im,int x,int y,i_color *val) { return im->i_f_ppix(im,x,y,val); }
+i_ppix(i_img *im, int x, int y, i_color *val) { return im->i_f_ppix(im, x, y, val); }
 
 /*
 =item i_gpix(im, x, y, &col)
@@ -415,7 +424,7 @@ Returns true if the pixel could be retrieved, false otherwise.
 =cut
 */
 int
-i_gpix(i_img *im,int x,int y,i_color *val) { return im->i_f_gpix(im,x,y,val); }
+i_gpix(i_img *im, int x, int y, i_color *val) { return im->i_f_gpix(im, x, y, val); }
 
 /*
 =item i_ppix_d(im, x, y, col)
@@ -430,7 +439,7 @@ Returns true if the pixel could be set, false otherwise.
 =cut
 */
 int
-i_ppix_d(i_img *im,int x,int y,i_color *val) {
+i_ppix_d(i_img *im, int x, int y, i_color *val) {
   int ch;
   
   if ( x>-1 && x<im->xsize && y>-1 && y<im->ysize ) {
@@ -455,7 +464,7 @@ Returns true if the pixel could be set, false otherwise.
 =cut
 */
 int 
-i_gpix_d(i_img *im,int x,int y,i_color *val) {
+i_gpix_d(i_img *im, int x, int y, i_color *val) {
   int ch;
   if (x>-1 && x<im->xsize && y>-1 && y<im->ysize) {
     for(ch=0;ch<im->channels;ch++) 
@@ -463,6 +472,78 @@ i_gpix_d(i_img *im,int x,int y,i_color *val) {
     return 0;
   }
   return -1; /* error was cliped */
+}
+
+/*
+=item i_glin_d(im, l, r, y, vals)
+
+Reads a line of data from the image, storing the pixels at vals.
+
+The line runs from (l,y) inclusive to (r,y) non-inclusive
+
+vals should point at space for (r-l) pixels.
+
+l should never be less than zero (to avoid confusion about where to
+put the pixels in vals).
+
+Returns the number of pixels copied (eg. if r, l or y is out of range)
+
+=cut */
+int
+i_glin_d(i_img *im, int l, int r, int y, i_color *vals) {
+  int ch, count, i;
+  unsigned char *data;
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    data = im->data + (l+y*im->xsize) * im->channels;
+    count = r - l;
+    for (i = 0; i < count; ++i) {
+      for (ch = 0; ch < im->channels; ++ch)
+	vals[i].channel[ch] = *data++;
+    }
+    return count;
+  }
+  else {
+    return 0;
+  }
+}
+/*
+=item i_plin_d(im, l, r, y, vals)
+
+Writes a line of data into the image, using the pixels at vals.
+
+The line runs from (l,y) inclusive to (r,y) non-inclusive
+
+vals should point at (r-l) pixels.
+
+l should never be less than zero (to avoid confusion about where to
+get the pixels in vals).
+
+Returns the number of pixels copied (eg. if r, l or y is out of range)
+
+=cut */
+int
+i_plin_d(i_img *im, int l, int r, int y, i_color *vals) {
+  int ch, count, i;
+  unsigned char *data;
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    data = im->data + (l+y*im->xsize) * im->channels;
+    count = r - l;
+    for (i = 0; i < count; ++i) {
+      for (ch = 0; ch < im->channels; ++ch) {
+	if (im->ch_mask & (1 << ch)) 
+	  *data = vals[i].channel[ch];
+	++data;
+      }
+    }
+    return count;
+  }
+  else {
+    return 0;
+  }
 }
 
 /*
@@ -499,8 +580,9 @@ i_copyto_trans(i_img *im,i_img *src,int x1,int y1,int x2,int y2,int tx,int ty,i_
   i_color pv;
   int x,y,t,ttx,tty,tt,ch;
 
-  mm_log((1,"i_copyto_trans(im* 0x%x,src 0x%x,x1 %d,y1 %d,x2 %d,y2 %d,tx %d,ty %d,trans* 0x%x)\n",im,src,x1,y1,x2,y2,tx,ty,trans));
-
+  mm_log((1,"i_copyto_trans(im* %p,src 0x%x, x1 %d, y1 %d, x2 %d, y2 %d, tx %d, ty %d, trans* 0x%x)\n",
+	  im, src, x1, y1, x2, y2, tx, ty, trans));
+  
   if (x2<x1) { t=x1; x1=x2; x2=t; }
   if (y2<y1) { t=y1; y1=y2; y2=t; }
 
@@ -536,22 +618,23 @@ If x1 > x2 or y1 > y2 then the corresponding co-ordinates are swapped.
 */
 
 void
-i_copyto(i_img *im,i_img *src,int x1,int y1,int x2,int y2,int tx,int ty) {
+i_copyto(i_img *im, i_img *src, int x1, int y1, int x2, int y2, int tx, int ty) {
   i_color pv;
-  int x,y,t,ttx,tty;
+  int x, y, t, ttx, tty;
 
   if (x2<x1) { t=x1; x1=x2; x2=t; }
   if (y2<y1) { t=y1; y1=y2; y2=t; }
 
-  mm_log((1,"i_copyto(im* 0x%x,src 0x%x,x1 %d,y1 %d,x2 %d,y2 %d,tx %d,ty %d)\n",im,src,x1,y1,x2,y2,tx,ty));
+  mm_log((1,"i_copyto(im* %p, src %p, x1 %d, y1 %d, x2 %d, y2 %d, tx %d, ty %d)\n",
+	  im, src, x1, y1, x2, y2, tx, ty));
 
-    tty=ty;
-    for(y=y1;y<y2;y++) {
-    ttx=tx;
-    for(x=x1;x<x2;x++) {
-      i_gpix(src,x,y,&pv);
-      i_ppix(im,ttx,tty,&pv);
-    ttx++;
+    tty = ty;
+    for(y=y1; y<y2; y++) {
+    ttx = tx;
+    for(x=x1; x<x2; x++) {
+      i_gpix(src, x,   y,   &pv);
+      i_ppix(im,  ttx, tty, &pv);
+      ttx++;
     }
     tty++;
   }
@@ -566,20 +649,22 @@ Copies the contents of the image I<src> over the image I<im>.
 */
 
 void
-i_copy(i_img *im,i_img *src) {
-  i_color pv;
-  int x,y,y1,x1;
+i_copy(i_img *im, i_img *src) {
+  i_color *pv;
+  int y, y1, x1;
 
-  mm_log((1,"i_copy(im* 0x%x,src 0x%x)\n",im,src));
+  mm_log((1,"i_copy(im* %p,src %p)\n", im, src));
 
-  x1=src->xsize;
-  y1=src->ysize;
-  i_img_empty_ch(im,x1,y1,src->channels);
+  x1 = src->xsize;
+  y1 = src->ysize;
+  i_img_empty_ch(im, x1, y1, src->channels);
+  pv = mymalloc(sizeof(i_color) * x1);
   
-  for(y=0;y<y1;y++) for(x=0;x<x1;x++) {
-    i_gpix(src,x,y,&pv);
-    i_ppix(im,x,y,&pv);
+  for (y = 0; y < y1; ++y) {
+    i_glin(src, 0, x1, y, pv);
+    i_plin(im, 0, x1, y, pv);
   }
+  myfree(pv);
 }
 
 
@@ -595,35 +680,148 @@ unmodified.
 
 =cut
 */
+
 void
 i_rubthru(i_img *im,i_img *src,int tx,int ty) {
-  i_color pv,orig,dest;
-  int x,y,ttx,tty;
+  i_color pv, orig, dest;
+  int x, y, ttx, tty;
 
-  mm_log((1,"i_rubthru(im 0x%x,src 0x%x,tx %d,ty %d)\n",im,src,tx,ty));
+  mm_log((1,"i_rubthru(im %p, src %p, tx %d, ty %d)\n", im, src, tx, ty));
 
-  if (im->channels != 3) {  fprintf(stderr,"Destination is not in rgb mode.\n"); exit(3); }
+  if (im->channels  != 3) { fprintf(stderr,"Destination is not in rgb mode.\n"); exit(3); }
   if (src->channels != 4) { fprintf(stderr,"Source is not in rgba mode.\n"); exit(3); }
 
-  ttx=tx;
-  for(x=0;x<src->xsize;x++)
-    {
-      tty=ty;
-      for(y=0;y<src->ysize;y++)
-	{
-	  /* fprintf(stderr,"reading (%d,%d) writing (%d,%d).\n",x,y,ttx,tty); */
-	  i_gpix(src,x,y,&pv);
-	  i_gpix(im,ttx,tty,&orig);
-	  dest.rgb.r=(pv.rgba.a*pv.rgba.r+(255-pv.rgba.a)*orig.rgb.r)/255;
-	  dest.rgb.g=(pv.rgba.a*pv.rgba.g+(255-pv.rgba.a)*orig.rgb.g)/255;
-	  dest.rgb.b=(pv.rgba.a*pv.rgba.b+(255-pv.rgba.a)*orig.rgb.b)/255;
-	  i_ppix(im,ttx,tty,&dest);
-	  tty++;
-	}
-      ttx++;
+  ttx = tx;
+  for(x=0; x<src->xsize; x++) {
+    tty=ty;
+    for(y=0;y<src->ysize;y++) {
+      /* fprintf(stderr,"reading (%d,%d) writing (%d,%d).\n",x,y,ttx,tty); */
+      i_gpix(src, x,   y,   &pv);
+      i_gpix(im,  ttx, tty, &orig);
+      dest.rgb.r = (pv.rgba.a*pv.rgba.r+(255-pv.rgba.a)*orig.rgb.r)/255;
+      dest.rgb.g = (pv.rgba.a*pv.rgba.g+(255-pv.rgba.a)*orig.rgb.g)/255;
+      dest.rgb.b = (pv.rgba.a*pv.rgba.b+(255-pv.rgba.a)*orig.rgb.b)/255;
+      i_ppix(im, ttx, tty, &dest);
+      tty++;
     }
+    ttx++;
+  }
 }
 
+
+/*
+=item i_flipxy(im, axis)
+
+Flips the image inplace around the axis specified.
+Returns 0 if parameters are invalid.
+
+   im   - Image pointer
+   axis - 0 = x, 1 = y, 2 = both
+
+=cut
+*/
+
+undef_int
+i_flipxy(i_img *im, int direction) {
+  int x, x2, y, y2, xm, ym;
+  int xs = im->xsize;
+  int ys = im->ysize;
+  
+  mm_log((1, "i_flipxy(im %p, direction %d)\n", im, direction ));
+
+  if (!im) return 0;
+
+  switch (direction) {
+  case XAXIS: /* Horizontal flip */
+    xm = xs/2;
+    ym = ys;
+    for(y=0; y<ym; y++) {
+      x2 = xs-1;
+      for(x=0; x<xm; x++) {
+	i_color val1, val2;
+	i_gpix(im, x,  y,  &val1);
+	i_gpix(im, x2, y,  &val2);
+	i_ppix(im, x,  y,  &val2);
+	i_ppix(im, x2, y,  &val1);
+	x2--;
+      }
+    }
+    break;
+  case YAXIS: /* Vertical flip */
+    xm = xs;
+    ym = ys/2;
+    y2 = ys-1;
+    for(y=0; y<ym; y++) {
+      for(x=0; x<xm; x++) {
+	i_color val1, val2;
+	i_gpix(im, x,  y,  &val1);
+	i_gpix(im, x,  y2, &val2);
+	i_ppix(im, x,  y,  &val2);
+	i_ppix(im, x,  y2, &val1);
+      }
+      y2--;
+    }
+    break;
+  case XYAXIS: /* Horizontal and Vertical flip */
+    xm = xs/2;
+    ym = ys/2;
+    y2 = ys-1;
+    for(y=0; y<ym; y++) {
+      x2 = xs-1;
+      for(x=0; x<xm; x++) {
+	i_color val1, val2;
+	i_gpix(im, x,  y,  &val1);
+	i_gpix(im, x2, y2, &val2);
+	i_ppix(im, x,  y,  &val2);
+	i_ppix(im, x2, y2, &val1);
+
+	i_gpix(im, x2, y,  &val1);
+	i_gpix(im, x,  y2, &val2);
+	i_ppix(im, x2, y,  &val2);
+	i_ppix(im, x,  y2, &val1);
+	x2--;
+      }
+      y2--;
+    }
+    if (xm*2 != xs) { /* odd number of column */
+      mm_log((1, "i_flipxy: odd number of columns\n"));
+      x = xm;
+      y2 = ys-1;
+      for(y=0; y<ym; y++) {
+	i_color val1, val2;
+	i_gpix(im, x,  y,  &val1);
+	i_gpix(im, x,  y2, &val2);
+	i_ppix(im, x,  y,  &val2);
+	i_ppix(im, x,  y2, &val1);
+	y2--;
+      }
+    }
+    if (ym*2 != ys) { /* odd number of rows */
+      mm_log((1, "i_flipxy: odd number of rows\n"));
+      y = ym;
+      x2 = xs-1;
+      for(x=0; x<xm; x++) {
+	i_color val1, val2;
+	i_gpix(im, x,  y,  &val1);
+	i_gpix(im, x2, y,  &val2);
+	i_ppix(im, x,  y,  &val2);
+	i_ppix(im, x2, y,  &val1);
+	x2--;
+      }
+    }
+    break;
+  default:
+    mm_log((1, "i_flipxy: direction is invalid\n" ));
+    return 0;
+  }
+  return 1;
+}
+
+
+
+
+
+static
 float
 Lanczos(float x) {
   float PIx, PIx2;

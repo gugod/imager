@@ -62,6 +62,11 @@ int i_gpix(i_img *im,int x,int y,i_color *val);
 
 int i_ppix_d(i_img *im,int x,int y,i_color *val);
 int i_gpix_d(i_img *im,int x,int y,i_color *val);
+int i_plin_d(i_img *im,int l, int r, int y, i_color *val);
+int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
+
+#define i_plin(im, l, r, y, val) (((im)->i_f_plin)(im, l, r, y, val))
+#define i_glin(im, l, r, y, val) (((im)->i_f_glin)(im, l, r, y, val))
 
 float i_gpix_pch(i_img *im,int x,int y,int ch);
 
@@ -77,6 +82,10 @@ void i_copyto_trans(i_img *im,i_img *src,int x1,int y1,int x2,int y2,int tx,int 
 void i_copy        (i_img *im,i_img *src);
 void i_rubthru     (i_img *im,i_img *src,int tx,int ty);
 
+undef_int i_flipxy (i_img *im, int direction);
+
+
+
 void i_bezier_multi(i_img *im,int l,double *x,double *y,i_color *val);
 void i_poly_aa     (i_img *im,int l,double *x,double *y,i_color *val);
 
@@ -86,6 +95,9 @@ void i_flood_fill  (i_img *im,int seedx,int seedy,i_color *dcol);
 
 void i_gaussian    (i_img *im,float stdev);
 void i_conv        (i_img *im,float *coeff,int len);
+
+/* colour manipulation */
+extern int i_convert(i_img *im, i_img *src, float *coeff, int outchan, int inchan);
 
 float i_img_diff   (i_img *im1,i_img *im2);
 
@@ -251,6 +263,7 @@ typedef enum i_ord_dith_tag
   od_vline,
   od_slashline, /* / line dither */
   od_backline, /* \ line dither */
+  od_tiny, /* small checkerbox */
   od_custom /* custom 8x8 map */
 } i_ord_dith;
 
@@ -349,6 +362,7 @@ undef_int i_writejpeg(i_img *im,int fd,int qfactor);
 #ifdef HAVE_LIBTIFF
 i_img* i_readtiff_wiol(io_glue *ig, int length);
 undef_int i_writetiff_wiol(i_img *im, io_glue *ig);
+undef_int i_writetiff_wiol_faxable(i_img *im, io_glue *ig, int fine);
 
 #endif /* HAVE_LIBTIFF */
 
@@ -440,6 +454,28 @@ typedef struct {
 
 } symbol_table_t;
 
+/* error handling 
+   see error.c for documentation
+   the error information is currently global
+*/
+typedef struct {
+  char *msg;
+  int code;
+} i_errmsg;
+
+typedef void (*i_error_cb)(int code, char const *msg);
+typedef void (*i_failed_cb)(i_errmsg *msgs);
+extern i_error_cb i_set_error_cb(i_error_cb);
+extern i_failed_cb i_set_failed_cb(i_failed_cb);
+extern void i_set_argv0(char const *);
+extern int i_set_errors_fatal(int new_fatal);
+extern i_errmsg *i_errors();
+
+extern void i_push_error(int code, char const *msg);
+extern void i_push_errorf(int code, char const *fmt, ...);
+extern void i_push_errorvf(int code, char const *fmt, va_list);
+extern void i_clear_error();
+extern int i_failed(int code, char const *msg);
 
 
 #endif

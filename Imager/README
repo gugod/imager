@@ -84,12 +84,18 @@ included since libgif has been linked with it).
 
 Also note that libgif has a few bugs: You can run something like
 
-$ perl -Iblib/lib -Iblib/arch t/t10formats.t
+$ perl -Iblib/lib -Iblib/arch t/t105gif.t
 
 This way you can see what comments the test script prints out.
-t/t10formats.t checks for an bug in libgiff and prints out a patch
+t/t105gif.t checks for an bug in libgif and prints out a patch
 if that bug is present, note that this bug only affects the more
 "advanced" features of libgif.
+
+If for some reason you have libungif-devel package installed but
+not libungif on RedHat then you will probably get lots of errors
+like undefined symbol: FreeSavedImages when running make test.
+Install libungif package to fix it.
+
 
 Imager needs to have a fairly recent libtiff installed (we know it
 it runs fine with 3.5.5).  In the future we might consider supporting older
@@ -116,6 +122,7 @@ needs for specific features.  The libraries it uses are:
 
   png: ftp://ftp.uu.net/graphics/png  
   you also need zlib to use png:  ftp://ftp.uu.net/pub/archiving/zip/zlib
+  We have encountered problems with libpng 1.0.1, which were fixed in 1.0.5
 
   gif: http://www.arrakeen.demon.co.uk/giflib/  
 or at: http://prtr-13.ucsc.edu/~badger/software/libungif/index.shtml
@@ -162,12 +169,12 @@ font.
 =================
 
 Imager can be installed on Win32 systems.  This was ported and tested
-with Microsoft Visual C++ 6.0 with build 623 of ActivePerl.  Currently
-I haven't tried to test any of the image formats except for ppm, since
-I don't have the required libraries on my NT machine.  This may
-change.  The same is true for font support, though it might be
-preferable to try to use Win32's native font support over the external
-librarie - why force the user to install yet another library.
+with Microsoft Visual C++ 6.0 with build 623 of ActivePerl.  If you
+have the appropriate libraries installed you can read and write PNG,
+TIFF, PPM and JPEG files.  There is currently no support for fonts
+under Win32, though it might be preferable to try to use Win32's
+native font support over the external librarie - why force the user to
+install yet another library?
 
 I haven't tried to target compilers other than VC++, since I don't
 have them installed.
@@ -198,6 +205,7 @@ Thanks go to:
   Tony Cook           ( TonyC )
   Claes Jacobson      ( Claes )
   Philip Gwyn         ( Leolo )
+  Michael Slade       ( Micksa )
   Brad Murray         ( HalfJack )
   Nicholas Dronen     ( Veblen )
   Michael G Schwern   ( Schwern )

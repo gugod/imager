@@ -57,6 +57,9 @@ use Imager::Font;
 		i_gaussian
 		i_conv
 		
+		i_convert
+		i_map
+		
 		i_img_diff
 
 		i_init_fonts
@@ -81,6 +84,7 @@ use Imager::Font;
 
 		i_readtiff_wiol
 		i_writetiff_wiol
+		i_writetiff_wiol_faxable
 
 		i_readpng
 		i_writepng
@@ -151,7 +155,7 @@ BEGIN {
   require Exporter;
   require DynaLoader;
 
-  $VERSION = '0.38pre9';
+  $VERSION = '0.38';
   @ISA = qw(Exporter DynaLoader);
   bootstrap Imager $VERSION;
 }
@@ -304,6 +308,11 @@ sub unload_plugin {
   return 1;
 }
 
+# take the results of i_error() and make a message out of it
+sub _error_as_msg {
+  return join(": ", map $_->[0], i_errors());
+}
+
 
 #
 # Methods to be called on objects.
@@ -371,21 +380,27 @@ sub crop {
 				@hsh{qw(left right bottom top)});
   $l=0 if not defined $l;
   $t=0 if not defined $t;
+
+  $r||=$l+delete $hsh{'width'}    if defined $l and exists $hsh{'width'};
+  $b||=$t+delete $hsh{'height'}   if defined $t and exists $hsh{'height'};
+  $l||=$r-delete $hsh{'width'}    if defined $r and exists $hsh{'width'};
+  $t||=$b-delete $hsh{'height'}   if defined $b and exists $hsh{'height'};
+
   $r=$self->getwidth if not defined $r;
   $b=$self->getheight if not defined $b;
 
   ($l,$r)=($r,$l) if $l>$r;
   ($t,$b)=($b,$t) if $t>$b;
 
-  if ($hsh{'width'}) { 
-    $l=int(0.5+($w-$hsh{'width'})/2); 
-    $r=$l+$hsh{'width'}; 
+  if ($hsh{'width'}) {
+    $l=int(0.5+($w-$hsh{'width'})/2);
+    $r=$l+$hsh{'width'};
   } else {
     $hsh{'width'}=$r-$l;
   }
-  if ($hsh{'height'}) { 
-    $b=int(0.5+($h-$hsh{'height'})/2); 
-    $t=$h+$hsh{'height'}; 
+  if ($hsh{'height'}) {
+    $b=int(0.5+($h-$hsh{'height'})/2);
+    $t=$h+$hsh{'height'};
   } else {
     $hsh{'height'}=$b-$t;
   }
@@ -393,7 +408,7 @@ sub crop {
 #    print "l=$l, r=$r, h=$hsh{'width'}\n";
 #    print "t=$t, b=$b, w=$hsh{'height'}\n";
 
-  my $dst=Imager->new(xsize=>$hsh{'width'},ysize=>$hsh{'height'},channels=>$self->getchannels());
+  my $dst=Imager->new(xsize=>$hsh{'width'}, ysize=>$hsh{'height'}, channels=>$self->getchannels());
 
   i_copyto($dst->{IMG},$self->{IMG},$l,$t,$r,$b,0,0);
   return $dst;
@@ -464,7 +479,7 @@ sub read {
 
     if ( $input{type} eq 'pnm' ) {
       $self->{IMG}=i_readpnm_wiol( $IO, -1 ); # Fixme, check if that length parameter is ever needed
-      if ( !defined($self->{IMG}) ) { $self->{ERRSTR}='unable to read pnm image'; return undef; }
+      if ( !defined($self->{IMG}) ) { $self->{ERRSTR}='unable to read pnm image: '._error_as_msg(); return undef; }
       $self->{DEBUG} && print "loading a pnm file\n";
       return $self;
     }
@@ -488,9 +503,35 @@ sub read {
   if ($input{fd}) { $fd=$input{fd} };
 
   if ( $input{type} eq 'gif' ) {
-    if (exists $input{data}) { $self->{IMG}=i_readgif_scalar($input{data}); }
-    else { $self->{IMG}=i_readgif( $fd ) }
-    if ( !defined($self->{IMG}) ) { $self->{ERRSTR}='unable to read gif image'; return undef; }
+    my $colors;
+    if ($input{colors} && !ref($input{colors})) {
+      # must be a reference to a scalar that accepts the colour map
+      $self->{ERRSTR} = "option 'colors' must be a scalar reference";
+      return undef;
+    }
+    if (exists $input{data}) {
+      if ($input{colors}) {
+	($self->{IMG}, $colors) = i_readgif_scalar($input{data});
+      }
+      else {
+	$self->{IMG}=i_readgif_scalar($input{data});
+      }
+    }
+    else { 
+      if ($input{colors}) {
+	($self->{IMG}, $colors) = i_readgif( $fd );
+      }
+      else {
+	$self->{IMG} = i_readgif( $fd )
+      }
+    }
+    if ($colors) {
+      # we may or may not change i_readgif to return blessed objects...
+      ${$input{colors}} = [ map { NC(@$_) } @$colors ];
+    }
+    if ( !defined($self->{IMG}) ) {
+      $self->{ERRSTR}= 'reading GIF:'._error_as_msg(); return undef;
+    }
     $self->{DEBUG} && print "loading a gif file\n";
   } elsif ( $input{type} eq 'jpeg' ) {
     if (exists $input{data}) { ($self->{IMG},$self->{IPTCRAW})=i_readjpeg_scalar($input{data}); }
@@ -521,7 +562,8 @@ sub read {
 
 sub write {
   my $self = shift;
-  my %input=(jpegquality=>75, gifquant=>'mc', lmdither=>6.0, lmfixed=>[], @_);
+  my %input=(jpegquality=>75, gifquant=>'mc', lmdither=>6.0, lmfixed=>[], 
+	     fax_fine=>1, @_);
   my ($fh, $rc, $fd, $IO);
 
   my %iolready=( tiff=>1 ); # this will be SO MUCH BETTER once they are all in there
@@ -529,7 +571,7 @@ sub write {
   unless ($self->{IMG}) { $self->{ERRSTR}='empty input image'; return undef; }
 
   if (!$input{file} and !$input{'fd'} and !$input{'data'}) { $self->{ERRSTR}='file/fd/data parameter missing'; return undef; }
-  if (!$input{type}) { $input{type}=$FORMATGUESS->($input{file}); }
+  if (!$input{type} and $input{file}) { $input{type}=$FORMATGUESS->($input{file}); }
   if (!$input{type}) { $self->{ERRSTR}='type parameter missing and not possible to guess from extension'; return undef; }
 
   if (!$formats{$input{type}}) { $self->{ERRSTR}='format not supported'; return undef; }
@@ -548,18 +590,33 @@ sub write {
 
 
   if ($iolready{$input{type}}) {
-    if ($fd) {
+    if (defined $fd) {
       $IO = io_new_fd($fd);
     }
 
     if ($input{type} eq 'tiff') {
-      if (!i_writetiff_wiol($self->{IMG}, $IO)) { $self->{ERRSTR}='Could not write to buffer'; return undef; }
+      if (defined $input{class} && $input{class} eq 'fax') {
+	if (!i_writetiff_wiol_faxable($self->{IMG}, $IO, $input{fax_fine})) {
+	  $self->{ERRSTR}='Could not write to buffer';
+	  return undef;
+	}
+      }
+      else {
+	if (!i_writetiff_wiol($self->{IMG}, $IO)) {
+	  $self->{ERRSTR}='Could not write to buffer';
+	  return undef;
+	}
+      }
     }
 
-    my $data = io_slurp($IO);
-    if (!$data) { $self->{ERRSTR}='Could not slurp from buffer'; return undef; }
-
-    ${$input{data}} = $data;
+    if (exists $input{'data'}) {
+      my $data = io_slurp($IO);
+      if (!$data) {
+	$self->{ERRSTR}='Could not slurp from buffer';
+	return undef;
+      }
+      ${$input{data}} = $data;
+    }
     return $self;
   } else {
 
@@ -612,7 +669,7 @@ sub write {
 	$rc=i_writegifmc($self->{IMG},$fd,$input{gifplanes});
       }
       if ( !defined($rc) ) {
-	$self->{ERRSTR}='unable to write gif image'; return undef;
+	$self->{ERRSTR} = "Writing GIF file: "._error_as_msg(); return undef;
       }
       $self->{DEBUG} && print "writing a gif file\n";
 
@@ -640,12 +697,6 @@ sub write {
 	$self->{ERRSTR}='unable to write raw image'; return undef;
       }
       $self->{DEBUG} && print "writing a raw file\n";
-    } elsif ( $input{type} eq 'tiff' ) {
-      $rc=i_writetiff_wiol($self->{IMG},io_new_fd($fd) );
-      if ( !defined($rc) ) {
-	$self->{ERRSTR}='unable to write tiff image'; return undef;
-      }
-      $self->{DEBUG} && print "writing a tiff file\n";
     }
 
   }
@@ -656,6 +707,12 @@ sub write_multi {
   my ($class, $opts, @images) = @_;
 
   if ($opts->{type} eq 'gif') {
+    my $gif_delays = $opts->{gif_delays};
+    local $opts->{gif_delays} = $gif_delays;
+    unless (ref $opts->{gif_delays}) {
+      # assume the caller wants the same delay for each frame
+      $opts->{gif_delays} = [ ($gif_delays) x @images ];
+    }
     # translate to ImgRaw
     if (grep !UNIVERSAL::isa($_, 'Imager') || !$_->{IMG}, @images) {
       $ERRSTR = "Usage: Imager->write_multi({ options }, @images)";
@@ -988,6 +1045,18 @@ sub rubthrough {
 }
 
 
+sub flip {
+  my $self  = shift;
+  my %opts  = @_;
+  my %xlate = (h=>0, v=>1, hv=>2, vh=>2);
+  my $dir;
+  return () unless defined $opts{'dir'} and defined $xlate{$opts{'dir'}};
+  $dir = $xlate{$opts{'dir'}};
+  return $self if i_flipxy($self->{IMG}, $dir);
+  return ();
+}
+
+
 
 # These two are supported for legacy code only
 
@@ -1114,6 +1183,151 @@ sub polybezier {
   return $self;
 }
 
+# make an identity matrix of the given size
+sub _identity {
+  my ($size) = @_;
+
+  my $matrix = [ map { [ (0) x $size ] } 1..$size ];
+  for my $c (0 .. ($size-1)) {
+    $matrix->[$c][$c] = 1;
+  }
+  return $matrix;
+}
+
+# general function to convert an image
+sub convert {
+  my ($self, %opts) = @_;
+  my $matrix;
+
+  # the user can either specify a matrix or preset
+  # the matrix overrides the preset
+  if (!exists($opts{matrix})) {
+    unless (exists($opts{preset})) {
+      $self->{ERRSTR} = "convert() needs a matrix or preset";
+      return;
+    }
+    else {
+      if ($opts{preset} eq 'gray' || $opts{preset} eq 'grey') {
+	# convert to greyscale, keeping the alpha channel if any
+	if ($self->getchannels == 3) {
+	  $matrix = [ [ 0.222, 0.707, 0.071 ] ];
+	}
+	elsif ($self->getchannels == 4) {
+	  # preserve the alpha channel
+	  $matrix = [ [ 0.222, 0.707, 0.071, 0 ],
+		      [ 0,     0,     0,     1 ] ];
+	}
+	else {
+	  # an identity
+	  $matrix = _identity($self->getchannels);
+	}
+      }
+      elsif ($opts{preset} eq 'noalpha') {
+	# strip the alpha channel
+	if ($self->getchannels == 2 or $self->getchannels == 4) {
+	  $matrix = _identity($self->getchannels);
+	  pop(@$matrix); # lose the alpha entry
+	}
+	else {
+	  $matrix = _identity($self->getchannels);
+	}
+      }
+      elsif ($opts{preset} eq 'red' || $opts{preset} eq 'channel0') {
+	# extract channel 0
+	$matrix = [ [ 1 ] ];
+      }
+      elsif ($opts{preset} eq 'green' || $opts{preset} eq 'channel1') {
+	$matrix = [ [ 0, 1 ] ];
+      }
+      elsif ($opts{preset} eq 'blue' || $opts{preset} eq 'channel2') {
+	$matrix = [ [ 0, 0, 1 ] ];
+      }
+      elsif ($opts{preset} eq 'alpha') {
+	if ($self->getchannels == 2 or $self->getchannels == 4) {
+	  $matrix = [ [ (0) x ($self->getchannels-1), 1 ] ];
+	}
+	else {
+	  # the alpha is just 1 <shrug>
+	  $matrix = [ [ (0) x $self->getchannels, 1 ] ];
+	}
+      }
+      elsif ($opts{preset} eq 'rgb') {
+	if ($self->getchannels == 1) {
+	  $matrix = [ [ 1 ], [ 1 ], [ 1 ] ];
+	}
+	elsif ($self->getchannels == 2) {
+	  # preserve the alpha channel
+	  $matrix = [ [ 1, 0 ], [ 1, 0 ], [ 1, 0 ], [ 0, 1 ] ];
+	}
+	else {
+	  $matrix = _identity($self->getchannels);
+	}
+      }
+      elsif ($opts{preset} eq 'addalpha') {
+	if ($self->getchannels == 1) {
+	  $matrix = _identity(2);
+	}
+	elsif ($self->getchannels == 3) {
+	  $matrix = _identity(4);
+	}
+	else {
+	  $matrix = _identity($self->getchannels);
+	}
+      }
+      else {
+	$self->{ERRSTR} = "Unknown convert preset $opts{preset}";
+	return undef;
+      }
+    }
+  }
+  else {
+    $matrix = $opts{matrix};
+  }
+
+  my $new = Imager->new();
+  $new->{IMG} = i_img_new();
+  unless (i_convert($new->{IMG}, $self->{IMG}, $matrix)) {
+    # most likely a bad matrix
+    $self->{ERRSTR} = _error_as_msg();
+    return undef;
+  }
+  return $new;
+}
+
+
+# general function to map an image through lookup tables
+
+sub map {
+  my ($self, %opts) = @_;
+  my @chlist = qw( red green blue alpha );
+
+  if (!exists($opts{'maps'})) {
+    # make maps from channel maps
+    my $chnum;
+    for $chnum (0..$#chlist) {
+      if (exists $opts{$chlist[$chnum]}) {
+	$opts{'maps'}[$chnum] = $opts{$chlist[$chnum]};
+      } elsif (exists $opts{'all'}) {
+	$opts{'maps'}[$chnum] = $opts{'all'};
+      }
+    }
+  }
+  if ($opts{'maps'} and $self->{IMG}) {
+    i_map($self->{IMG}, $opts{'maps'} );
+  }
+  return $self;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 # destructive border - image is shrunk by one pixel all around
 
@@ -1194,52 +1408,7 @@ sub string {
     return;
   }
 
-  my $aa=1;
-  my $font=$input{'font'};
-  my $align=$font->{'align'} unless exists $input{'align'};
-  my $color=$input{'color'} || $font->{'color'};
-  my $size=$input{'size'}   || $font->{'size'};
-
-  if (!defined($size)) { $self->{ERRSTR}='No size parameter and no default in font'; return undef; }
-
-  $aa=$font->{'aa'} if exists $font->{'aa'};
-  $aa=$input{'aa'} if exists $input{'aa'};
-
-
-
-#  unless($font->can('text')) {
-#    $self->{ERRSTR}="font is unable to do what we need";
-#    return;
-#  }
-
-#  use Data::Dumper; 
-#  warn Dumper($font);
-
-#  print "Channel=".$input{'channel'}."\n";
-
-  if ( $font->{'type'} eq 't1' ) {
-    if ( exists $input{'channel'} ) {
-      Imager::Font::t1_set_aa_level($aa);
-      i_t1_cp($self->{IMG},$input{'x'},$input{'y'},
-	      $input{'channel'},$font->{'id'},$size,
-	      $input{'string'},length($input{'string'}),1);
-    } else {
-      Imager::Font::t1_set_aa_level($aa);
-      i_t1_text($self->{IMG},$input{'x'},$input{'y'},
-		$color,$font->{'id'},$size,
-		$input{'string'},length($input{'string'}),1);
-    }
-  }
-
-  if ( $font->{'type'} eq 'tt' ) {
-    if ( exists $input{'channel'} ) {
-      i_tt_cp($font->{'id'},$self->{IMG},$input{'x'},$input{'y'},$input{'channel'},
-	      $size,$input{'string'},length($input{'string'}),$aa); 
-    } else {
-      i_tt_text($font->{'id'},$self->{IMG},$input{'x'},$input{'y'},$color,$size,
-		$input{'string'},length($input{'string'}),$aa); 
-    }
-  }
+  $input{font}->draw(image=>$self, %input);
 
   return $self;
 }
@@ -1446,8 +1615,8 @@ one channel images after reading them.  For jpeg images the iptc
 header information (stored in the APP13 header) is avaliable to some
 degree. You can get the raw header with C<$img-E<gt>{IPTCRAW}>, but
 you can also retrieve the most basic information with
-C<%hsh=$img-E<gt>parseiptc()> as always patches are welcome.  Neither
-pnm nor tiff have extra options. Examples:
+C<%hsh=$img-E<gt>parseiptc()> as always patches are welcome.  pnm has no 
+extra options. Examples:
 
   $img = Imager->new();
   $img->read(file=>"cover.jpg") or die $img->errstr; # gets type from name
@@ -1459,6 +1628,30 @@ pnm nor tiff have extra options. Examples:
 The second example shows how to read an image from a scalar, this is
 usefull if your data originates from somewhere else than a filesystem
 such as a database over a DBI connection.
+
+When writing to a tiff image file you can also specify the 'class'
+parameter, which can currently take a single value, "fax".  If class
+is set to fax then a tiff image which should be suitable for faxing
+will be written.  For the best results start with a grayscale image.
+By default the image is written at fine resolution you can override
+this by setting the "fax_fine" parameter to 0.
+
+If you are reading from a gif image file, you can supply a 'colors'
+parameter which must be a reference to a scalar.  The referenced
+scalar will receive an array reference which contains the colors, each
+represented as an Imager::Color object.
+
+If you already have an open file handle, for example a socket or a
+pipe, you can specify the 'fd' parameter instead of supplying a
+filename.  Please be aware that you need to use fileno() to retrieve
+the file descriptor for the file:
+
+  $img->read(fd=>fileno(FILE), type=>'gif') or die $img->errstr;
+
+For writing using the 'fd' option you will probably want to set $| for
+that descriptor, since the writes to the file descriptor bypass Perl's
+(or the C libraries) buffering.  Setting $| should avoid out of order
+output.
 
 *Note that load() is now an alias for read but will be removed later*
 
@@ -1487,6 +1680,32 @@ is sufficient:
   use Imager;
   print "@{[keys %Imager::formats]}";
 
+When reading raw images you need to supply the width and height of the
+image in the xsize and ysize options:
+
+  $img->read(file=>'foo.raw', xsize=>100, ysize=>100)
+    or die "Cannot read raw image\n";
+
+If your input file has more channels than you want, or (as is common),
+junk in the fourth channel, you can use the datachannels and
+storechannels options to control the number of channels in your input
+file and the resulting channels in your image.  For example, if your
+input image uses 32-bits per pixel with red, green, blue and junk
+values for each pixel you could do:
+
+  $img->read(file=>'foo.raw', xsize=>100, ysize=>100, datachannels=>4,
+	     storechannels=>3)
+    or die "Cannot read raw image\n";
+
+Normally the raw image is expected to have the value for channel 1
+immediately following channel 0 and channel 2 immediately following
+channel 1 for each pixel.  If your input image has all the channel 0
+values for the first line of the image, followed by all the channel 1
+values for the first line and so on, you can use the interleave option:
+
+  $img->read(file=>'foo.raw', xsize=100, ysize=>100, interleave=>1)
+    or die "Cannot read raw image\n";
+
 =head2 Multi-image files
 
 Currently just for gif files, you can create files that contain more
@@ -1496,9 +1715,13 @@ To do this:
 
   Imager->write_multi(\%opts, @images)
 
-Where %opts describes 3 possible types of outputs:
+Where %opts describes 4 possible types of outputs:
 
-=over 4
+=over 5
+
+=item type
+
+This is C<gif> for gif animations.
 
 =item callback
 
@@ -1521,6 +1744,8 @@ options>.
 
 =back
 
+You must also specify the file format using the 'type' option.
+
 The current aim is to support other multiple image formats in the
 future, such as TIFF, and to support reading multiple images from a
 single file.
@@ -1531,7 +1756,7 @@ A simple example:
     # ... code to put images in @images
     Imager->write_multi({type=>'gif',
 			 file=>'anim.gif',
-			 gif_delays=>[ 10 x @images ] },
+			 gif_delays=>[ (10) x @images ] },
 			@images)
     or die "Oh dear!";
 
@@ -1561,6 +1786,9 @@ The images are written interlaced if this is non-zero.
 A reference to an array containing the delays between images, in 1/100
 seconds.
 
+If you want the same delay for every frame you can simply set this to
+the delay in 1/100 seconds.
+
 =item gif_user_input
 
 A reference to an array contains user input flags.  If the given flag
@@ -1578,7 +1806,9 @@ the previous value.
 =item gif_tran_color
 
 A reference to an Imager::Color object, which is the colour to use for
-the palette entry used to represent transparency in the palette.
+the palette entry used to represent transparency in the palette.  You
+need to set the transp option (see L<Quantization options>) for this
+value to be used.
 
 =item gif_positions
 
@@ -1636,6 +1866,9 @@ channel.
 
 =back
 
+This will only be used if the image has an alpha channel, and if there
+is space in the palette for a transparency colour.
+
 =item tr_threshold
 
 The highest alpha value at which a pixel will be made transparent when
@@ -1647,17 +1880,16 @@ The type of error diffusion to perform on the alpha channel when
 transp is 'errdiff'.  This can be any defined error diffusion type
 except for custom (see errdiff below).
 
-=item tr_ordered
+=item tr_orddith
 
 The type of ordered dither to perform on the alpha channel when transp
-is 'orddith'.  Possible values are:
+is 'ordered'.  Possible values are:
 
 =over 4
 
 =item random
 
-A semi-random map is used.  The map is the same each time.  Currently
-the default (which may change.)
+A semi-random map is used.  The map is the same each time.
 
 =item dot8
 
@@ -1686,6 +1918,11 @@ diagonal line dither
 =item backline
 
 diagonal line dither
+
+=item tiny
+
+dot matrix dither (currently the default).  This is probably the best
+for displays (like web pages).
 
 =item custom
 
@@ -1847,7 +2084,6 @@ the function return undef.  Examples:
 =head2 Drawing Methods
 
 IMPLEMENTATION MORE OR LESS DONE CHECK THE TESTS
-
 DOCUMENTATION OF THIS SECTION OUT OF SYNC
 
 It is possible to draw with graphics primitives onto images.  Such
@@ -1954,10 +2190,23 @@ To copy an image to onto another image use the C<paste()> method.
 That copies the entire C<$logo> image onto the C<$dest> image so that the
 upper left corner of the C<$logo> image is at (40,20).
 
+
+=head2 Flipping images
+
+An inplace horizontal or vertical flip is possible by calling the
+C<flip()> method.  If the original is to be preserved it's possible to
+make a copy first.  The only parameter it takes is the C<dir>
+parameter which can take the values C<h>, C<v>, C<vh> and C<hv>.
+
+  $img->flip(dir=>"h");       # horizontal flip
+  $img->flip(dir=>"vh");      # vertical and horizontal flip
+  $nimg = $img->copy->flip(dir=>"v"); # make a copy and flip it vertically
+
 =head2 Blending Images
- 
-To put an image or a part of an image directly into another it is
-best to call the C<paste()> method on the image you want to add to.
+
+To put an image or a part of an image directly
+into another it is best to call the C<paste()> method on the image you
+want to add to.
 
   $img->paste(img=>$srcimage,left=>30,top=>50);
 
@@ -2001,6 +2250,162 @@ value but if a parameter has a default value it may be omitted when
 calling the filter function.
 
 FIXME: make a seperate pod for filters?
+
+=head2 Color transformations
+
+You can use the convert method to transform the color space of an
+image using a matrix.  For ease of use some presets are provided.
+
+The convert method can be used to:
+
+=over 4
+
+=item *
+
+convert an RGB or RGBA image to grayscale.
+
+=item *
+
+convert a grayscale image to RGB.
+
+=item *
+
+extract a single channel from an image.
+
+=item *
+
+set a given channel to a particular value (or from another channel)
+
+=back
+
+The currently defined presets are:
+
+=over
+
+=item gray
+
+=item grey
+
+converts an RGBA image into a grayscale image with alpha channel, or
+an RGB image into a grayscale image without an alpha channel.
+
+This weights the RGB channels at 22.2%, 70.7% and 7.1% respectively.
+
+=item noalpha
+
+removes the alpha channel from a 2 or 4 channel image.  An identity
+for other images.
+
+=item red
+
+=item channel0
+
+extracts the first channel of the image into a single channel image
+
+=item green
+
+=item channel1
+
+extracts the second channel of the image into a single channel image
+
+=item blue
+
+=item channel2
+
+extracts the third channel of the image into a single channel image
+
+=item alpha
+
+extracts the alpha channel of the image into a single channel image.
+
+If the image has 1 or 3 channels (assumed to be grayscale of RGB) then
+the resulting image will be all white.
+
+=item rgb
+
+converts a grayscale image to RGB, preserving the alpha channel if any
+
+=item addalpha
+
+adds an alpha channel to a grayscale or RGB image.  Preserves an
+existing alpha channel for a 2 or 4 channel image.
+
+=back
+
+For example, to convert an RGB image into a greyscale image:
+
+  $new = $img->convert(preset=>'grey'); # or gray
+
+or to convert a grayscale image to an RGB image:
+
+  $new = $img->convert(preset=>'rgb');
+
+The presets aren't necessary simple constants in the code, some are
+generated based on the number of channels in the input image.
+
+If you want to perform some other colour transformation, you can use
+the 'matrix' parameter.
+
+For each output pixel the following matrix multiplication is done:
+
+     channel[0]       [ [ $c00, $c01, ...  ]        inchannel[0]
+   [     ...      ] =          ...              x [     ...        ]
+     channel[n-1]       [ $cn0, ...,  $cnn ] ]      inchannel[max]
+                                                          1
+
+So if you want to swap the red and green channels on a 3 channel image:
+
+  $new = $img->convert(matrix=>[ [ 0, 1, 0 ],
+                                 [ 1, 0, 0 ],
+                                 [ 0, 0, 1 ] ]);
+
+or to convert a 3 channel image to greyscale using equal weightings:
+
+  $new = $img->convert(matrix=>[ [ 0.333, 0.333, 0.334 ] ])
+
+=head2 Color Mappings
+
+You can use the map method to map the values of each channel of an
+image independently using a list of lookup tables.  It's important to
+realize that the modification is made inplace.  The function simply
+returns the input image again or undef on failure.
+
+Each channel is mapped independently through a lookup table with 256
+entries.  The elements in the table should not be less than 0 and not
+greater than 255.  If they are out of the 0..255 range they are
+clamped to the range.  If a table does not contain 256 entries it is
+silently ignored.
+
+Single channels can mapped by specifying their name and the mapping
+table.  The channel names are C<red>, C<green>, C<blue>, C<alpha>.
+
+  @map = map { int( $_/2 } 0..255;
+  $img->map( red=>\@map );
+
+It is also possible to specify a single map that is applied to all
+channels, alpha channel included.  For example this applies a gamma
+correction with a gamma of 1.4 to the input image.
+
+  $gamma = 1.4;
+  @map = map { int( 0.5 + 255*($_/255)**$gamma ) } 0..255;
+  $img->map(all=> \@map);
+
+The C<all> map is used as a default channel, if no other map is
+specified for a channel then the C<all> map is used instead.  If we
+had not wanted to apply gamma to the alpha channel we would have used:
+
+  $img->map(all=> \@map, alpha=>[]);
+
+Since C<[]> contains fewer than 256 element the gamma channel is
+unaffected.
+
+It is also possible to simply specify an array of maps that are
+applied to the images in the rgba order.  For example to apply
+maps to the C<red> and C<blue> channels one would use:
+
+  $img->map(maps=>[\@redmap, [], \@bluemap]);
+
+
 
 =head2 Transformations
 
@@ -2184,7 +2589,8 @@ A few examples:
 
 =item rpnexpr=>'x 25 % 15 * y 35 % 10 * getp1 !pat x y getp1 !pix @pix sat 0.7 gt @pat @pix ifp'
 
-tiles a smaller version of the input image over itself where the colour has a saturation over 0.7.
+tiles a smaller version of the input image over itself where the
+colour has a saturation over 0.7.
 
 =item rpnexpr=>'x 25 % 15 * y 35 % 10 * getp1 !pat y 360 / !rat x y getp1 1 @rat - pmult @pat @rat pmult padd'
 
@@ -2258,13 +2664,12 @@ only 2 colors used - it will have a 128 colortable anyway.
 
 =head1 AUTHOR
 
-Arnar M. Hrafnkelsson, addi@umich.edu
-And a great deal of help from others - see the README for a complete
-list.
+Arnar M. Hrafnkelsson, addi@umich.edu, and recently lots of assistance
+from Tony Cook.  See the README for a complete list.
+
 =head1 SEE ALSO
 
-perl(1), Imager::Color(3), Affix::Infix2Postfix(3), Parse::RecDescent(3)
-http://www.eecs.umich.edu/~addi/perl/Imager/
-
+perl(1), Imager::Color(3), Imager::Font, Affix::Infix2Postfix(3),
+Parse::RecDescent(3) http://www.eecs.umich.edu/~addi/perl/Imager/
 
 =cut

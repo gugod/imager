@@ -170,6 +170,7 @@ static struct value_name orddith_names[] =
   { "slashline", od_slashline, },
   { "\\line", od_backline, },
   { "backline", od_backline, },
+  { "tiny", od_tiny, },
   { "custom", od_custom, },
 };
 
@@ -199,7 +200,7 @@ static void handle_quant_opts(i_quantize *quant, HV *hv)
 	quant->tr_errdiff = lookup_name(errdiff_names, sizeof(errdiff_names)/sizeof(*errdiff_names), str, ed_floyd);
     }
     if (quant->transp == tr_ordered) {
-      quant->tr_orddith = od_random;
+      quant->tr_orddith = od_tiny;
       sv = hv_fetch(hv, "tr_orddith", 10, 0);
       if (sv && *sv && (str = SvPV(*sv, len)))
 	quant->tr_orddith = lookup_name(orddith_names, sizeof(orddith_names)/sizeof(*orddith_names), str, od_random);
@@ -407,9 +408,6 @@ static void copy_colors_back(HV *hv, i_quantize *quant) {
   }
 }
 
-/* used to make the typemap happy */
-typedef HV *HASH;
-
 MODULE = Imager		PACKAGE = Imager::Color	PREFIX = ICL_
 
 Imager::Color
@@ -424,14 +422,17 @@ ICL_DESTROY(cl)
                Imager::Color    cl
 
 
-Imager::Color
+void
 ICL_set_internal(cl,r,g,b,a)
                Imager::Color    cl
                unsigned char     r
                unsigned char     g
                unsigned char     b
                unsigned char     a
-
+	   PPCODE:
+	       ICL_set_internal(cl, r, g, b, a);
+	       EXTEND(SP, 1);
+	       PUSHs(ST(0));
 
 void
 ICL_info(cl)
@@ -744,6 +745,11 @@ i_rubthru(im,src,tx,ty)
 	       int     tx
 	       int     ty
 
+undef_int
+i_flipxy(im, direction)
+    Imager::ImgRaw     im
+	       int     direction
+
 
 void
 i_gaussian(im,stdev)
@@ -772,7 +778,97 @@ i_conv(im,pcoef)
 	     i_conv(im,coeff,len);
 	     myfree(coeff);
 
-	          
+undef_int
+i_convert(im, src, coeff)
+    Imager::ImgRaw     im
+    Imager::ImgRaw     src
+	PREINIT:
+    	  float *coeff;
+	  int outchan;
+	  int inchan;
+	  AV *avmain;
+          SV **temp;
+	  SV *svsub;
+          AV *avsub;
+	  int len;
+	  int i, j;
+        CODE:
+	  if (!SvROK(ST(2)) || SvTYPE(SvRV(ST(2))) != SVt_PVAV)
+	    croak("i_convert: parameter 3 must be an arrayref\n");
+          avmain = (AV*)SvRV(ST(2));
+	  outchan = av_len(avmain)+1;
+          /* find the biggest */
+          inchan = 0;
+	  for (j=0; j < outchan; ++j) {
+	    temp = av_fetch(avmain, j, 0);
+	    if (temp && SvROK(*temp) && SvTYPE(SvRV(*temp)) == SVt_PVAV) {
+	      avsub = (AV*)SvRV(*temp);
+	      len = av_len(avsub)+1;
+	      if (len > inchan)
+		inchan = len;
+	    }
+          }
+          coeff = mymalloc(sizeof(float) * outchan * inchan);
+	  for (j = 0; j < outchan; ++j) {
+	    avsub = (AV*)SvRV(*av_fetch(avmain, j, 0));
+	    len = av_len(avsub)+1;
+	    for (i = 0; i < len; ++i) {
+	      temp = av_fetch(avsub, i, 0);
+	      if (temp)
+		coeff[i+j*inchan] = SvNV(*temp);
+	      else
+	 	coeff[i+j*inchan] = 0;
+	    }
+	    while (i < inchan)
+	      coeff[i++ + j*inchan] = 0;
+	  }
+	  RETVAL = i_convert(im, src, coeff, outchan, inchan);
+          myfree(coeff);
+	OUTPUT:
+	  RETVAL
+
+
+void
+i_map(im, pmaps)
+    Imager::ImgRaw     im
+	PREINIT:
+	  unsigned int mask = 0;
+	  AV *avmain;
+	  AV *avsub;
+          SV **temp;
+	  int len;
+	  int i, j;
+	  unsigned char (*maps)[256];
+        CODE:
+	  if (!SvROK(ST(1)) || SvTYPE(SvRV(ST(1))) != SVt_PVAV)
+	    croak("i_map: parameter 2 must be an arrayref\n");
+          avmain = (AV*)SvRV(ST(1));
+	  len = av_len(avmain)+1;
+	  if (im->channels < len) len = im->channels;
+
+	  maps = mymalloc( len * sizeof(unsigned char [256]) );
+
+	  for (j=0; j<len ; j++) {
+	    temp = av_fetch(avmain, j, 0);
+	    if (temp && SvROK(*temp) && (SvTYPE(SvRV(*temp)) == SVt_PVAV) ) {
+	      avsub = (AV*)SvRV(*temp);
+	      if(av_len(avsub) != 255) continue;
+	      mask |= 1<<j;
+              for (i=0; i<256 ; i++) {
+		int val;
+		temp = av_fetch(avsub, i, 0);
+		val = temp ? SvIV(*temp) : 0;
+		if (val<0) val = 0;
+		if (val>255) val = 255;
+		maps[j][i] = val;
+	      }
+            }
+          }
+          i_map(im, maps, mask);
+	  myfree(maps);
+
+
+
 float
 i_img_diff(im1,im2)
     Imager::ImgRaw     im1
@@ -1017,6 +1113,12 @@ i_writetiff_wiol(im, ig)
     Imager::ImgRaw     im
         Imager::IO     ig
 
+undef_int
+i_writetiff_wiol_faxable(im, ig, fine)
+    Imager::ImgRaw     im
+        Imager::IO     ig
+	       int     fine
+
 
 #endif /* HAVE_LIBTIFF */
 
@@ -1055,6 +1157,11 @@ i_readpng_scalar(...)
 
 
 #ifdef HAVE_LIBGIF
+
+void
+i_giflib_version()
+	PPCODE:
+	  PUSHs(sv_2mortal(newSVnv(IM_GIFMAJOR+IM_GIFMINOR*0.1)));
 
 undef_int
 i_writegif(im,fd,colors,pixdev,fixed)
@@ -1099,10 +1206,6 @@ i_writegifmc(im,fd,colors)
 	       int     fd
 	       int     colors
 
-undef_int
-i_writegifex(im,fd)
-    Imager::ImgRaw     im
-	       int     fd
 
 undef_int
 i_writegif_gen(fd, ...)
@@ -1131,6 +1234,8 @@ i_writegif_gen(fd, ...)
 	RETVAL = 1;
 	if (img_count < 1) {
 	  RETVAL = 0;
+	  i_clear_error();
+	  i_push_error(0, "You need to specify images to save");
 	}
 	else {
           imgs = mymalloc(sizeof(i_img *) * img_count);
@@ -1141,6 +1246,8 @@ i_writegif_gen(fd, ...)
 	      imgs[i] = (i_img *)SvIV((SV*)SvRV(sv));
 	    }
 	    else {
+	      i_clear_error();
+	      i_push_error(0, "Only images can be saved");
 	      RETVAL = 0;
 	      break;
             }
@@ -1687,8 +1794,31 @@ i_gradgen(im, ...)
 
 
 
-
-
+void
+i_errors()
+      PREINIT:
+        i_errmsg *errors;
+	int i;
+	int count;
+	AV *av;
+	SV *ref;
+	SV *sv;
+      PPCODE:
+	errors = i_errors();
+	i = 0;
+	while (errors[i].msg) {
+	  av = newAV();
+	  sv = newSVpv(errors[i].msg, strlen(errors[i].msg));
+	  if (!av_store(av, 0, sv)) {
+	    SvREFCNT_dec(sv);
+	  }
+	  sv = newSViv(errors[i].code);
+	  if (!av_store(av, 1, sv)) {
+	    SvREFCNT_dec(sv);
+	  }
+	  PUSHs(sv_2mortal(newRV_noinc((SV*)av)));
+	  ++i;
+	}
 
 void
 i_nearest_color(im, ...)
@@ -1810,4 +1940,15 @@ DSO_call(handle,func_index,hv)
 
 
 
+# this is mostly for testing...
+Imager::Color
+i_get_pixel(im, x, y)
+	Imager::ImgRaw im
+	int x
+	int y;
+      CODE:
+	RETVAL = (i_color *)mymalloc(sizeof(i_color));
+	i_gpix(im, x, y, RETVAL);
+      OUTPUT:
+	RETVAL
 

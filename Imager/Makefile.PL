@@ -4,6 +4,7 @@ use Cwd;
 use Config;
 
 $lext=$Config{'so'};   # Get extensions of libraries
+$aext=$Config{'_a'};
 
 #
 # IM_INCPATH      colon seperated list of paths to extra include paths
@@ -60,7 +61,8 @@ if (defined $Config{'d_dlsymun'}) { $OSDEF  .= ' -DDLSYMUN'; }
 @objs = qw(Imager.o draw.o image.o io.o iolayer.o log.o
 	   gaussian.o conv.o pnm.o raw.o feat.o font.o
 	   filters.o dynaload.o stackmach.o datatypes.o
-	   regmach.o trans2.o quant.o);
+	   regmach.o trans2.o quant.o error.o convert.o
+	   map.o);
 
 %opts=(
        'NAME'         => 'Imager',
@@ -68,12 +70,19 @@ if (defined $Config{'d_dlsymun'}) { $OSDEF  .= ' -DDLSYMUN'; }
        'LIBS'         => "$LFLAGS -lm $OSLIBS $F_LIBS",
        'DEFINE'       => "$F_DEFINE $EXTDEF $OSDEF $CFLAGS",
        'INC'          => "$DFLAGS $F_INC",
-       'OBJECT'       => join(' ', @objs, $F_OBJECT)
+       'OBJECT'       => join(' ', @objs, $F_OBJECT),
+       clean          => { FILES=>'testout' },
       );
+
+if ($] ge '5.005') {
+  $opts{AUTHOR} = 'Arnar M. Hrafnkelsson, addi@umich.edu';
+  $opts{ABSTRACT} = 'Perl extension for Generating 24 bit Images';
+}
 
 if ($VERBOSE) { print Dumper(\%opts); }
 mkdir('testout',0777); # since we cannot include it in the archive.
 WriteMakefile(%opts);
+
 exit;
 
 
@@ -104,7 +113,7 @@ EOF
   SWX:
     if ($formats{$frm}{docs}) { print "\n",$formats{$frm}{docs},"\n\n"; }
     print "Enable $frm support: ";
-    $gz=<STDIN>;
+    $gz = <STDIN>;
     chomp($gz);
     if ($gz =~ m/^(y|yes|n|no)/i) {
       $gz=substr(lc($gz),0,1);
@@ -126,10 +135,35 @@ sub automatic {
 
 
 sub gifcheck {
-  if ($formats{'gif'} and $formats{'ungif'}) { 
+  if ($formats{'gif'} and $formats{'ungif'}) {
     print "ungif and gif can not coexist - removing ungif support\n";
     delete $formats{'ungif'};
   }
+
+ RETR:
+  if ($formats{'gif'} or $formats{'ungif'}) {
+    print <<EOFF;
+
+You have libgif or libungif installed.  They are both known to have
+bugs.  Imager can crash or display other strange behaviour after
+reading or writing gif images.  Some of the gif tests can even fail
+since they stress some parts of the buggy code.
+
+Do you want to remove gif support? [Y/n]
+EOFF
+    my $resp = <STDIN>;
+    chomp($resp);
+    if ($resp ne "n") {
+      delete $formats{'gif'};
+      delete $formats{'ungif'};
+      return;
+    }
+  }
+
+  for my $frm (qw(gif ungif)) {
+    checkformat($frm) if ($MANUAL and $formats{$frm});
+  }
+
   my @dirs;
   for my $frm (grep $formats{$_}, qw(gif ungif)) {
     push(@dirs, @{$formats{$frm}{incdir}}) if $formats{$frm}{incdir};
@@ -151,7 +185,7 @@ sub gifcheck {
   }
 
   # we need the version in a #ifdefable form
-  
+
   $F_DEFINE .= "-DIM_GIFMAJOR=$major -DIM_GIFMINOR=$minor";
 }
 
@@ -229,12 +263,16 @@ sub init {
   @definc{'/usr/include'}=();
   @incs=(qw(/usr/include /usr/local/include /usr/include/freetype /usr/local/include/freetype), split /:/, $INCPATH );
   @libs=(split(/ /, $Config{'libpth'}), split(/:/, $LIBPATH) );
+  if ($^O =~ /win32/i && $Config{cc} =~ /\bcl\b/i) {
+    push(@incs, split /;/, $ENV{INCLUDE}) if exists $ENV{INCLUDE};
+    push(@libs, split /;/, $ENV{LIB}) if exists $ENV{LIB};
+  }
 
   $formats{'jpeg'}={
 		    order=>'21',
 		    def=>'HAVE_LIBJPEG',
 		    inccheck=>sub { $_[0] eq 'jpeglib.h' },
-		    libcheck=>sub { $_[0] eq 'libjpeg.a' or $_ eq "libjpeg.$lext" },
+		    libcheck=>sub { $_[0] eq "libjpeg$aext" or $_ eq "libjpeg.$lext" },
 		    libfiles=>'-ljpeg',
 		    objfiles=>'jpeg.o',
 		    docs=>q{
@@ -246,7 +284,7 @@ sub init {
 		    order=>'23',
 		    def=>'HAVE_LIBTIFF',
 		    inccheck=>sub { $_[0] eq 'tiffio.h' },
-		    libcheck=>sub { $_[0] eq 'libtiff.a' or $_ eq "libtiff.$lext" },
+		    libcheck=>sub { $_[0] eq "libtiff$aext" or $_ eq "libtiff.$lext" },
 		    libfiles=>'-ltiff',
 		    objfiles=>'tiff.o',
 		    docs=>q{
@@ -258,7 +296,7 @@ sub init {
 		   order=>'22',
 		   def=>'HAVE_LIBPNG',
 		   inccheck=>sub { $_[0] eq 'png.h' },
-		   libcheck=>sub { $_[0] eq 'libpng.a' or $_[0] eq "libpng.$lext" },
+		   libcheck=>sub { $_[0] eq "libpng$aext" or $_[0] eq "libpng.$lext" },
 		   libfiles=>'-lpng -lz',
 		   objfiles=>'png.o',
 		   docs=>q{
@@ -271,7 +309,7 @@ sub init {
 		   order=>'20',
 		   def=>'HAVE_LIBGIF',
 		   inccheck=>sub { $_[0] eq 'gif_lib.h' },
-		   libcheck=>sub { $_[0] eq 'libgif.a' or $_[0] eq "libgif.$lext" },
+		   libcheck=>sub { $_[0] eq "libgif$aext" or $_[0] eq "libgif.$lext" },
 		   libfiles=>'-lgif',
 		   objfiles=>'gif.o',
 		   docs=>q{
@@ -286,7 +324,7 @@ sub init {
 		     order=>'21',
 		     def=>'HAVE_LIBGIF',
 		     inccheck=>sub { $_[0] eq 'gif_lib.h' },
-		     libcheck=>sub { $_[0] eq 'libungif.a' or $_[0] eq "libungif.$lext" },
+		     libcheck=>sub { $_[0] eq "libungif$aext" or $_[0] eq "libungif.$lext" },
 		     libfiles=>'-lungif',
 		     objfiles=>'gif.o',
 		     docs=>q{

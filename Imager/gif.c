@@ -1,14 +1,86 @@
 #include "image.h"
 #include <gif_lib.h>
 
+/*
+=head1 NAME
+
+gif.c - read and write gif files for Imager
+
+=head1 SYNOPSIS
+
+  i_img *img;
+  i_img *imgs[count];
+  int fd;
+  int *colour_table,
+  int colours;
+  int max_colours; // number of bits per colour
+  int pixdev;  // how much noise to add 
+  i_color fixed[N]; // fixed palette entries 
+  int fixedlen; // number of fixed colours 
+  int success; // non-zero on success
+  char *data; // a GIF file in memory
+  int length; // how big data is 
+  int reader(char *, char *, int, int);
+  int writer(char *, char *, int);
+  char *userdata; // user's data, whatever it is
+  i_quantize quant;
+  i_gif_opts opts;
+
+  img = i_readgif(fd, &colour_table, &colours);
+  success = i_writegif(img, fd, max_colours, pixdev, fixedlen, fixed);
+  success = i_writegifmc(img, fd, max_colours);
+  img = i_readgif_scalar(data, length, &colour_table, &colours);
+  img = i_readgif_callback(cb, userdata, &colour_table, &colours);
+  success = i_writegif_gen(&quant, fd, imgs, count, &opts);
+  success = i_writegif_callback(&quant, writer, userdata, maxlength, 
+                                imgs, count, &opts);
+
+=head1 DESCRIPTION
+
+This source file provides the C level interface to reading and writing
+GIF files for Imager.
+
+This has been tested with giflib 3 and 4, though you lose the callback
+functionality with giflib3.
+
+=head1 REFERENCE
+
+=over
+
+=cut
+*/
+
+static char const *gif_error_msg(int code);
+static void gif_push_error();
 
 #if IM_GIFMAJOR >= 4
+
+/*
+=item gif_scalar_info
+
+Internal.  A structure passed to the reader function used for reading
+GIFs from scalars.
+
+Used with giflib 4 and later.
+
+=cut
+*/
 
 struct gif_scalar_info {
   char *data;
   int length;
   int cpos;
 };
+
+/*
+=item my_gif_inputfunc(GifFileType *gft, GifByteType *buf, int length)
+
+Internal.  The reader callback passed to giflib.
+
+Used with giflib 4 and later.
+
+=cut
+*/
 
 int
 my_gif_inputfunc(GifFileType* gft, GifByteType *buf,int length) {
@@ -36,17 +108,50 @@ my_gif_inputfunc(GifFileType* gft, GifByteType *buf,int length) {
 /* Make some variables global, so we could access them faster: */
 
 static int
-    ImageNum = 0,
-    BackGround = 0,
-    ColorMapSize = 0,
-    InterlacedOffset[] = { 0, 4, 2, 1 }, /* The way Interlaced image should. */
-    InterlacedJumps[] = { 8, 8, 4, 2 };    /* be read - offsets and jumps... */
-static ColorMapObject *ColorMap;
+  InterlacedOffset[] = { 0, 4, 2, 1 }, /* The way Interlaced image should. */
+  InterlacedJumps[] = { 8, 8, 4, 2 };    /* be read - offsets and jumps... */
+
+/*  static ColorMapObject *ColorMap; */
+
+
+static
+void
+i_colortable_copy(int **colour_table, int *colours, ColorMapObject *colourmap) {
+  GifColorType *mapentry;
+  int q;
+  int colourmapsize = colourmap->ColorCount;
+
+  if(colours) *colours = colourmapsize;
+  if(!colour_table) return;
+  
+  *colour_table = mymalloc(sizeof(int) * colourmapsize * 3);
+  memset(*colour_table, 0, sizeof(int) * colourmapsize * 3);
+
+  for(q=0; q<colourmapsize; q++) {
+    mapentry = &colourmap->Colors[q];
+    (*colour_table)[q*3 + 0] = mapentry->Red;
+    (*colour_table)[q*3 + 1] = mapentry->Green;
+    (*colour_table)[q*3 + 2] = mapentry->Blue;
+  }
+}
+
+
+/*
+=item i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours)
+
+Internal.  Low-level function for reading a GIF file.  The caller must
+create the appropriate GifFileType object and pass it in.
+
+=cut
+*/
 
 i_img *
 i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
   i_img *im;
   int i, j, Size, Row, Col, Width, Height, ExtCode, Count, x;
+  int cmapcnt = 0, ImageNum = 0, BackGround = 0, ColorMapSize = 0;
+  ColorMapObject *ColorMap;
+ 
   GifRecordType RecordType;
   GifByteType *Extension;
   
@@ -54,38 +159,27 @@ i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
   static GifColorType *ColorMapEntry;
   i_color col;
 
-  /*  unsigned char *Buffer, *BufferP; */
-
   mm_log((1,"i_readgif_low(GifFile %p, colour_table %p, colours %p)\n", GifFile, colour_table, colours));
+
+  /* it's possible that the caller has called us with *colour_table being
+     non-NULL, but we check that to see if we need to free an allocated
+     colour table on error.
+  */
+  if (colour_table)
+    *colour_table = NULL;
 
   BackGround = GifFile->SBackGroundColor;
   ColorMap = (GifFile->Image.ColorMap ? GifFile->Image.ColorMap : GifFile->SColorMap);
-  ColorMapSize = ColorMap->ColorCount;
 
-  /* **************************************** */
-  if(colour_table != NULL) {
-    int q;
-    *colour_table=mymalloc(sizeof(int *) * ColorMapSize * 3);
-    if(*colour_table == NULL) 
-      m_fatal(0,"Failed to allocate memory for GIF colour table, aborted."); 
-    
-    memset(*colour_table, 0, sizeof(int *) * ColorMapSize * 3);
-
-    for(q=0; q<ColorMapSize; q++) {
-      ColorMapEntry = &ColorMap->Colors[q];
-      (*colour_table)[q*3 + 0]=ColorMapEntry->Red;
-      (*colour_table)[q*3 + 1]=ColorMapEntry->Green;
-      (*colour_table)[q*3 + 2]=ColorMapEntry->Blue;
-    }
-  }
-
-  if(colours != NULL) {
-    *colours = ColorMapSize;
+  if (ColorMap) {
+    ColorMapSize = ColorMap->ColorCount;
+    i_colortable_copy(colour_table, colours, ColorMap);
+    cmapcnt++;
   }
   
-  /* **************************************** */
-  im=i_img_empty_ch(NULL,GifFile->SWidth,GifFile->SHeight,3);
-  
+
+  im = i_img_empty_ch(NULL,GifFile->SWidth,GifFile->SHeight,3);
+
   Size = GifFile->SWidth * sizeof(GifPixelType); 
   
   if ((GifRow = (GifRowType) mymalloc(Size)) == NULL)
@@ -96,16 +190,48 @@ i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
   /* Scan the content of the GIF file and load the image(s) in: */
   do {
     if (DGifGetRecordType(GifFile, &RecordType) == GIF_ERROR) {
-      PrintGifError();
-      exit(-1);
+      gif_push_error();
+      i_push_error(0, "Unable to get record type");
+      if (colour_table && *colour_table) {
+	myfree(*colour_table);
+	*colour_table = NULL;
+      }
+      i_img_destroy(im);
+      DGifCloseFile(GifFile);
+      return NULL;
     }
     
     switch (RecordType) {
     case IMAGE_DESC_RECORD_TYPE:
       if (DGifGetImageDesc(GifFile) == GIF_ERROR) {
-	PrintGifError();
-	exit(-1);
+	gif_push_error();
+	i_push_error(0, "Unable to get image descriptor");
+	if (colour_table && *colour_table) {
+	  myfree(*colour_table);
+	  *colour_table = NULL;
+	}
+	i_img_destroy(im);
+	DGifCloseFile(GifFile);
+	return NULL;
       }
+
+      if (( ColorMap = (GifFile->Image.ColorMap ? GifFile->Image.ColorMap : GifFile->SColorMap) )) {
+	mm_log((1, "Adding local colormap\n"));
+	ColorMapSize = ColorMap->ColorCount;
+	if ( cmapcnt == 0) {
+	  i_colortable_copy(colour_table, colours, ColorMap);
+	  cmapcnt++;
+	}
+      } else {
+	/* No colormap and we are about to read in the image - abandon for now */
+	mm_log((1, "Going in with no colormap\n"));
+	i_push_error(0, "Image does not have a local or a global color map");
+	/* we can't have allocated a colour table here */
+	i_img_destroy(im);
+	DGifCloseFile(GifFile);
+	return NULL;
+      }
+      
       Row = GifFile->Image.Top; /* Image Position relative to Screen. */
       Col = GifFile->Image.Left;
       Width = GifFile->Image.Width;
@@ -115,41 +241,61 @@ i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
 
       if (GifFile->Image.Left + GifFile->Image.Width > GifFile->SWidth ||
 	  GifFile->Image.Top + GifFile->Image.Height > GifFile->SHeight) {
-	fprintf(stderr, "Image %d is not confined to screen dimension, aborted.\n",ImageNum);
+	i_push_errorf(0, "Image %d is not confined to screen dimension, aborted.\n",ImageNum);
+	if (colour_table && *colour_table) {
+	  myfree(*colour_table);
+	  *colour_table = NULL;
+	}
+	i_img_destroy(im);
+	DGifCloseFile(GifFile);
 	return(0);
       }
       if (GifFile->Image.Interlace) {
 
 	for (Count = i = 0; i < 4; i++) for (j = Row + InterlacedOffset[i]; j < Row + Height; j += InterlacedJumps[i]) {
 	  Count++;
-	  if (DGifGetLine(GifFile, &GifRow[Col], Width) == GIF_ERROR) {
-	    mm_log((1,"fatal"));
-	    exit(-1);
+	  if (DGifGetLine(GifFile, GifRow, Width) == GIF_ERROR) {
+	    gif_push_error();
+	    i_push_error(0, "Reading GIF line");
+	    if (colour_table && *colour_table) {
+	      myfree(*colour_table);
+	      *colour_table = NULL;
+	    }
+	    i_img_destroy(im);
+	    DGifCloseFile(GifFile);
+	    return NULL;
 	  }
 	  
-	  for (x = 0; x < GifFile->SWidth; x++) {
+	  for (x = 0; x < Width; x++) {
 	    ColorMapEntry = &ColorMap->Colors[GifRow[x]];
 	    col.rgb.r = ColorMapEntry->Red;
 	    col.rgb.g = ColorMapEntry->Green;
 	    col.rgb.b = ColorMapEntry->Blue;
-	    i_ppix(im,x,j,&col);
+	    i_ppix(im,Col+x,j,&col);
 	  }
 	  
 	}
       }
       else {
 	for (i = 0; i < Height; i++) {
-	  if (DGifGetLine(GifFile, &GifRow[Col], Width) == GIF_ERROR) {
-	    mm_log((1,"fatal\n"));
-	    exit(-1);
+	  if (DGifGetLine(GifFile, GifRow, Width) == GIF_ERROR) {
+	    gif_push_error();
+	    i_push_error(0, "Reading GIF line");
+	    if (colour_table && *colour_table) {
+	      myfree(*colour_table);
+	      *colour_table = NULL;
+	    }
+	    i_img_destroy(im);
+	    DGifCloseFile(GifFile);
+	    return NULL;
 	  }
 
-	  for (x = 0; x < GifFile->SWidth; x++) {
+	  for (x = 0; x < Width; x++) {
 	    ColorMapEntry = &ColorMap->Colors[GifRow[x]];
 	    col.rgb.r = ColorMapEntry->Red;
 	    col.rgb.g = ColorMapEntry->Green;
 	    col.rgb.b = ColorMapEntry->Blue;
-	    i_ppix(im,x,Row,&col);
+	    i_ppix(im, Col+x, Row, &col);
 	  }
 	  Row++;
 	}
@@ -158,13 +304,27 @@ i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
     case EXTENSION_RECORD_TYPE:
       /* Skip any extension blocks in file: */
       if (DGifGetExtension(GifFile, &ExtCode, &Extension) == GIF_ERROR) {
-	mm_log((1,"fatal\n"));
-	exit(-1);
+	gif_push_error();
+	i_push_error(0, "Reading extension record");
+	if (colour_table && *colour_table) {
+	  myfree(*colour_table);
+	  *colour_table = NULL;
+	}
+	i_img_destroy(im);
+	DGifCloseFile(GifFile);
+	return NULL;
       }
       while (Extension != NULL) {
 	if (DGifGetExtensionNext(GifFile, &Extension) == GIF_ERROR) {
-	  mm_log((1,"fatal\n"));
-	  exit(-1);
+	  gif_push_error();
+	  i_push_error(0, "reading next block of extension");
+	  if (colour_table && *colour_table) {
+	    myfree(*colour_table);
+	    *colour_table = NULL;
+	  }
+	  i_img_destroy(im);
+	  DGifCloseFile(GifFile);
+	  return NULL;
 	}
       }
       break;
@@ -178,20 +338,43 @@ i_readgif_low(GifFileType *GifFile, int **colour_table, int *colours) {
   myfree(GifRow);
   
   if (DGifCloseFile(GifFile) == GIF_ERROR) {
-    PrintGifError();
-    exit(-1);
+    gif_push_error();
+    i_push_error(0, "Closing GIF file object");
+    if (colour_table && *colour_table) {
+      myfree(*colour_table);
+      *colour_table = NULL;
+    }
+    i_img_destroy(im);
+    return NULL;
   }
   return im;
 }
 
+/*
+=item i_readgif(int fd, int **colour_table, int *colours)
+
+Reads in a GIF file from a file handle and converts it to an Imager
+RGB image object.
+
+Returns the palette for the object in colour_table for colours
+colours.
+
+Returns NULL on failure.
+
+=cut
+*/
 
 i_img *
 i_readgif(int fd, int **colour_table, int *colours) {
   GifFileType *GifFile;
+
+  i_clear_error();
   
   mm_log((1,"i_readgif(fd %d, colour_table %p, colours %p)\n", fd, colour_table, colours));
 
   if ((GifFile = DGifOpenFileHandle(fd)) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create giflib file object");
     mm_log((1,"i_readgif: Unable to open file\n"));
     return NULL;
   }
@@ -199,6 +382,17 @@ i_readgif(int fd, int **colour_table, int *colours) {
   return i_readgif_low(GifFile, colour_table, colours);
 }
 
+/*
+=item i_writegif(i_img *im, int fd, int max_colors, int pixdev, int fixedlen, i_color fixed[])
+
+Write I<img> to the file handle I<fd>.  The resulting GIF will use a
+maximum of 1<<I<max_colours> colours, with the first I<fixedlen>
+colours taken from I<fixed>.
+
+Returns non-zero on success.
+
+=cut
+*/
 
 undef_int
 i_writegif(i_img *im, int fd, int max_colors, int pixdev, int fixedlen, i_color fixed[])
@@ -219,6 +413,17 @@ i_writegif(i_img *im, int fd, int max_colors, int pixdev, int fixedlen, i_color 
   return i_writegif_gen(&quant, fd, &im, 1, &opts);
 }
 
+/*
+=item i_writegifmc(i_img *im, int fd, int max_colors)
+
+Write I<img> to the file handle I<fd>.  The resulting GIF will use a
+maximum of 1<<I<max_colours> colours.
+
+Returns non-zero on success.
+
+=cut
+*/
+
 undef_int
 i_writegifmc(i_img *im, int fd, int max_colors) {
   i_color colors[256];
@@ -235,111 +440,25 @@ i_writegifmc(i_img *im, int fd, int max_colors) {
   return i_writegif_gen(&quant, fd, &im, 1, &opts);
 }
 
-#if 1
 
-undef_int
-i_writegifex(i_img *im, int fd) {
-  return 0;
-}
+/*
+=item i_readgif_scalar(char *data, int length, int **colour_table, int *colours)
 
-#else
+Reads a GIF file from an in memory copy of the file.  This can be used
+if you get the 'file' from some source other than an actual file (or
+some other file handle).
 
-/* I don't think this works
-   note that RedBuffer is never allocated - TC
+This function is only available with giflib 4 and higher.
+
+=cut
 */
-
-undef_int
-i_writegifex(i_img *im,int fd) {
-  int colors, xsize, ysize, channels;
-  int x,y,ColorMapSize;
-  unsigned long Size;
-
-  struct octt *ct;
-
-  GifByteType *RedBuffer = NULL, *GreenBuffer = NULL, *BlueBuffer = NULL,*OutputBuffer = NULL;
-  ColorMapObject *OutputColorMap = NULL;
-  GifFileType *GifFile;
-  GifByteType *Ptr;
-  
-  i_color val;
-
-  mm_log((1,"i_writegif(0x%x,fd %d)\n",im,fd));
-  
-  if (!(im->channels==1 || im->channels==3)) { fprintf(stderr,"Unable to write gif, improper colorspace.\n"); exit(3); }
-
-  xsize=im->xsize;
-  ysize=im->ysize;
-  channels=im->channels;
-
-  colors=0;
-  ct=octt_new();
-
-  colors=0;
-  for(x=0;x<xsize;x++) for(y=0;y<ysize;y++) {
-    i_gpix(im,x,y,&val);
-    colors+=octt_add(ct,val.rgb.r,val.rgb.g,val.rgb.b);
-    /*  if (colors > maxc) { octt_delete(ct); } 
-	We'll just bite the bullet */
-  }
-
-  ColorMapSize = (colors > 256) ? 256 : colors;
-  
-  Size = ((long) im->xsize) * im->ysize * sizeof(GifByteType);
-  
-  if ((OutputColorMap = MakeMapObject(ColorMapSize, NULL)) == NULL)
-    m_fatal(0,"Failed to allocate memory for Output colormap.");
-  if ((OutputBuffer = (GifByteType *) mymalloc(im->xsize * im->ysize * sizeof(GifByteType))) == NULL)
-    m_fatal(0,"Failed to allocate memory for output buffer.");
-  
-  if (QuantizeBuffer(im->xsize, im->ysize, &ColorMapSize, RedBuffer, GreenBuffer, BlueBuffer,
-		     OutputBuffer, OutputColorMap->Colors) == GIF_ERROR) {
-    mm_log((1,"Error in QuantizeBuffer, unable to write image.\n"));
-    return(0);
-  }
-
-
-  myfree(RedBuffer);
-  if (im->channels == 3) { myfree(GreenBuffer); myfree(BlueBuffer); }
-  
-  if ((GifFile = EGifOpenFileHandle(fd)) == NULL) {
-    mm_log((1,"Error in EGifOpenFileHandle, unable to write image.\n"));
-    return(0);
-  }
-  
-  if (EGifPutScreenDesc(GifFile,im->xsize, im->ysize, colors, 0,OutputColorMap) == GIF_ERROR ||
-      EGifPutImageDesc(GifFile,0, 0, im->xsize, im->ysize, FALSE, NULL) == GIF_ERROR) {
-    mm_log((1,"Error in EGifOpenFileHandle, unable to write image.\n"));
-    if (GifFile != NULL) EGifCloseFile(GifFile);
-    return(0);
-  }
-
-  Ptr = OutputBuffer;
-
-  for (y = 0; y < im->ysize; y++) {
-    if (EGifPutLine(GifFile, Ptr, im->xsize) == GIF_ERROR) {
-      mm_log((1,"Error in EGifOpenFileHandle, unable to write image.\n"));
-      if (GifFile != NULL) EGifCloseFile(GifFile);
-      return(0);
-    }
-    
-    Ptr += im->xsize;
-  }
-  
-  if (EGifCloseFile(GifFile) == GIF_ERROR) {
-    mm_log((1,"Error in EGifCloseFile, unable to write image.\n"));
-    return(0);
-  }
-  return(1);
-}
-
-#endif
-
 i_img*
 i_readgif_scalar(char *data, int length, int **colour_table, int *colours) {
 #if IM_GIFMAJOR >= 4
   GifFileType *GifFile;
-  
   struct gif_scalar_info gsi;
+
+  i_clear_error();
 
   gsi.cpos=0;
   gsi.length=length;
@@ -347,6 +466,8 @@ i_readgif_scalar(char *data, int length, int **colour_table, int *colours) {
 
   mm_log((1,"i_readgif_scalar(char* data, int length, colour_table %p, colours %p)\n", data, length, colour_table, colours));
   if ((GifFile = DGifOpen( (void*) &gsi, my_gif_inputfunc )) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create giflib callback object");
     mm_log((1,"i_readgif_scalar: Unable to open scalar datasource.\n"));
     return NULL;
   }
@@ -359,6 +480,16 @@ i_readgif_scalar(char *data, int length, int **colour_table, int *colours) {
 
 #if IM_GIFMAJOR >= 4
 
+/*
+=item gif_read_callback(GifFileType *gft, GifByteType *buf, int length)
+
+Internal.  The reader callback wrapper passed to giflib.
+
+This function is only used with giflib 4 and higher.
+
+=cut
+*/
+
 static int
 gif_read_callback(GifFileType *gft, GifByteType *buf, int length) {
   return i_gen_reader((i_gen_read_data *)gft->UserData, buf, length);
@@ -366,16 +497,32 @@ gif_read_callback(GifFileType *gft, GifByteType *buf, int length) {
 
 #endif
 
+
+/*
+=item i_readgif_callback(i_read_callback_t cb, char *userdata, int **colour_table, int *colours)
+
+Read a GIF file into an Imager RGB file, the data of the GIF file is
+retreived by callin the user supplied callback function.
+
+This function is only used with giflib 4 and higher.
+
+=cut
+*/
+
 i_img*
 i_readgif_callback(i_read_callback_t cb, char *userdata, int **colour_table, int *colours) {
 #if IM_GIFMAJOR >= 4
   GifFileType *GifFile;
   i_img *result;
-  
+
   i_gen_read_data *gci = i_gen_read_data_new(cb, userdata);
 
+  i_clear_error();
+  
   mm_log((1,"i_readgif_callback(callback %p, userdata %p, colour_table %p, colours %p)\n", cb, userdata, colour_table, colours));
   if ((GifFile = DGifOpen( (void*) gci, gif_read_callback )) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create giflib callback object");
     mm_log((1,"i_readgif_callback: Unable to open callback datasource.\n"));
     myfree(gci);
     return NULL;
@@ -390,8 +537,16 @@ i_readgif_callback(i_read_callback_t cb, char *userdata, int **colour_table, int
 #endif
 }
 
-/* low level image write 
-   writes in interlace if that's what was requested */
+/*
+=item do_write(GifFileType *gf, i_gif_opts *opts, i_img *img, i_palidx *data)
+
+Internal.  Low level image write function.  Writes in interlace if
+that was requested in the GIF options.
+
+Returns non-zero on success.
+
+=cut
+*/
 static undef_int 
 do_write(GifFileType *gf, i_gif_opts *opts, i_img *img, i_palidx *data) {
   if (opts->interlace) {
@@ -399,6 +554,8 @@ do_write(GifFileType *gf, i_gif_opts *opts, i_img *img, i_palidx *data) {
     for (i = 0; i < 4; ++i) {
       for (j = InterlacedOffset[i]; j < img->ysize; j += InterlacedJumps[i]) {
 	if (EGifPutLine(gf, data+j*img->xsize, img->xsize) == GIF_ERROR) {
+	  gif_push_error();
+	  i_push_error(0, "Could not save image data:");
 	  mm_log((1, "Error in EGifPutLine\n"));
 	  EGifCloseFile(gf);
 	  return 0;
@@ -410,6 +567,8 @@ do_write(GifFileType *gf, i_gif_opts *opts, i_img *img, i_palidx *data) {
     int y;
     for (y = 0; y < img->ysize; ++y) {
       if (EGifPutLine(gf, data, img->xsize) == GIF_ERROR) {
+	gif_push_error();
+	i_push_error(0, "Could not save image data:");
 	mm_log((1, "Error in EGifPutLine\n"));
 	EGifCloseFile(gf);
 	return 0;
@@ -421,6 +580,15 @@ do_write(GifFileType *gf, i_gif_opts *opts, i_img *img, i_palidx *data) {
   return 1;
 }
 
+/*
+=item do_gce(GifFileType *gf, int index, i_gif_opts *opts, int want_trans, int trans_index)
+
+Internal. Writes the GIF graphics control extension, if necessary.
+
+Returns non-zero on success.
+
+=cut
+*/
 static int do_gce(GifFileType *gf, int index, i_gif_opts *opts, int want_trans, int trans_index)
 {
   unsigned char gce[4] = {0};
@@ -445,15 +613,27 @@ static int do_gce(GifFileType *gf, int index, i_gif_opts *opts, int want_trans, 
     ++want_gce;
   }
   if (want_gce) {
-    return EGifPutExtension(gf, 0xF9, sizeof(gce), gce) != GIF_ERROR;
+    if (EGifPutExtension(gf, 0xF9, sizeof(gce), gce) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "Could not save GCE");
+    }
   }
   return 1;
 }
 
-/* add the Netscape2.0 loop extension block, if requested */
+/*
+=item do_ns_loop(GifFileType *gf, i_gif_opts *opts)
+
+Internal.  Add the Netscape2.0 loop extension block, if requested.
+
+The code for this function is currently "#if 0"ed out since the giflib
+extension writing code currently doesn't seem to support writing
+application extension blocks.
+
+=cut
+*/
 static int do_ns_loop(GifFileType *gf, i_gif_opts *opts)
 {
-#if 0
   /* EGifPutExtension() doesn't appear to handle application 
      extension blocks in any way
      Since giflib wraps the fd with a FILE * (and puts that in its
@@ -464,17 +644,41 @@ static int do_ns_loop(GifFileType *gf, i_gif_opts *opts)
      If giflib's callback interface wasn't broken by default, I'd 
      force file writes to use callbacks, but it is broken by default.
   */
+#if 0
+  /* yes this was another attempt at supporting the loop extension */
   if (opts->loop_count) {
-    unsigned char nsle[15] = "NETSCAPE2.0";
-    nsle[11] = 3;
-    nsle[12] = 1;
-    nsle[13] = opts->loop_count % 256;
-    nsle[14] = opts->loop_count / 256;
-    return EGifPutExtension(gf, 0xFF, sizeof(nsle), nsle) != GIF_ERROR;
+    unsigned char nsle[12] = "NETSCAPE2.0";
+    unsigned char subblock[3];
+    if (EGifPutExtension(gf, 0xFF, 11, nsle) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "writing loop extension");
+      return 0;
+    }
+    subblock[0] = 1;
+    subblock[1] = opts->loop_count % 256;
+    subblock[2] = opts->loop_count / 256;
+    if (EGifPutExtension(gf, 0, 3, subblock) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "writing loop extention sub-block");
+      return 0;
+    }
+    if (EGifPutExtension(gf, 0, 0, subblock) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "writing loop extension terminator");
+      return 0;
+    }
   }
 #endif
   return 1;
 }
+
+/*
+=item make_gif_map(i_quantize *quant, i_gif_opts *opts, int want_trans)
+
+Create a giflib color map object from an Imager color map.
+
+=cut
+*/
 
 static ColorMapObject *make_gif_map(i_quantize *quant, i_gif_opts *opts,
 				    int want_trans) {
@@ -482,6 +686,7 @@ static ColorMapObject *make_gif_map(i_quantize *quant, i_gif_opts *opts,
   int i;
   int size = quant->mc_count;
   int map_size;
+  ColorMapObject *map;
 
   for (i = 0; i < quant->mc_count; ++i) {
     colors[i].Red = quant->mc_colors[i].rgb.r;
@@ -497,12 +702,43 @@ static ColorMapObject *make_gif_map(i_quantize *quant, i_gif_opts *opts,
   map_size = 1;
   while (map_size < size)
     map_size <<= 1;
-  return MakeMapObject(map_size, colors);
+  /* giflib spews for 1 colour maps, reasonable, I suppose */
+  if (map_size == 1)
+    map_size = 2;
+  
+  map = MakeMapObject(map_size, colors);
+  mm_log((1, "XXX map is at %p and colors at %p\n", map, map->Colors));
+  if (!map) {
+    gif_push_error();
+    i_push_error(0, "Could not create color map object");
+    return NULL;
+  }
+  return map;
 }
 
-/* we need to call EGifSetGifVersion() before opening the file - put that
-   common code here
+/*
+=item gif_set_version(i_quantize *quant, i_gif_opts *opts)
+
+We need to call EGifSetGifVersion() before opening the file - put that
+common code here.
+
+Unfortunately giflib 4.1.0 crashes when we use this.  Internally
+giflib 4.1.0 has code:
+
+  static char *GifVersionPrefix = GIF87_STAMP;
+
+and the code that sets the version internally does:
+
+  strncpy(&GifVersionPrefix[3], Version, 3);
+
+which is very broken.
+
+Failing to set the correct GIF version doesn't seem to cause a problem
+with readers.
+
+=cut
 */
+
 static void gif_set_version(i_quantize *quant, i_gif_opts *opts) {
   /* the following crashed giflib
      the EGifSetGifVersion() is seriously borked in giflib
@@ -518,6 +754,17 @@ static void gif_set_version(i_quantize *quant, i_gif_opts *opts) {
      EGifSetGifVersion("87a");
   */
 }
+
+/*
+=item i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count, i_gif_opts *opts)
+
+Internal.  Low-level function that does the high-level GIF processing
+:)
+
+Returns non-zero on success.
+
+=cut
+*/
 
 static undef_int
 i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
@@ -554,24 +801,31 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
     }
   }
 
-
-  if (count <= 0)
+  if (count <= 0) {
+    i_push_error(0, "No images provided to write");
     return 0; /* what are you smoking? */
+  }
 
   orig_count = quant->mc_count;
   orig_size = quant->mc_size;
 
   if (opts->each_palette) {
-    int want_trans;
+    int want_trans = quant->transp != tr_none 
+      && imgs[0]->channels == 4;
+
+    /* if the caller gives us too many colours we can't do transparency */
+    if (want_trans && quant->mc_count == 256)
+      want_trans = 0;
+    /* if they want transparency but give us a big size, make it smaller
+       to give room for a transparency colour */
+    if (want_trans && quant->mc_size == 256)
+      --quant->mc_size;
 
     /* we always generate a global palette - this lets systems with a 
        broken giflib work */
     quant_makemap(quant, imgs, 1);
     result = quant_translate(quant, imgs[0]);
 
-    want_trans = quant->transp != tr_none 
-      && imgs[0]->channels == 4 
-      && quant->mc_count < 256;
     if (want_trans)
       quant_transparent(quant, result, imgs[0], quant->mc_count);
     
@@ -587,6 +841,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       ++color_bits;
   
     if (EGifPutScreenDesc(gf, scrw, scrh, color_bits, 0, map) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "Could not save screen descriptor");
       FreeMapObject(map);
       myfree(result);
       EGifCloseFile(gf);
@@ -611,6 +867,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       posx = posy = 0;
     if (EGifPutImageDesc(gf, posx, posy, imgs[0]->xsize, imgs[0]->ysize, 
 			 opts->interlace, NULL) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "Could not save image descriptor");
       EGifCloseFile(gf);
       mm_log((1, "Error in EGifPutImageDesc."));
       return 0;
@@ -623,11 +881,18 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
     for (imgn = 1; imgn < count; ++imgn) {
       quant->mc_count = orig_count;
       quant->mc_size = orig_size;
+      want_trans = quant->transp != tr_none 
+	&& imgs[0]->channels == 4;
+      /* if the caller gives us too many colours we can't do transparency */
+      if (want_trans && quant->mc_count == 256)
+	want_trans = 0;
+      /* if they want transparency but give us a big size, make it smaller
+	 to give room for a transparency colour */
+      if (want_trans && quant->mc_size == 256)
+	--quant->mc_size;
+
       quant_makemap(quant, imgs+imgn, 1);
       result = quant_translate(quant, imgs[imgn]);
-      want_trans = quant->transp != tr_none 
-	&& imgs[imgn]->channels == 4 
-	&& quant->mc_count < 256;
       if (want_trans)
 	quant_transparent(quant, result, imgs[imgn], quant->mc_count);
       
@@ -651,6 +916,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       if (EGifPutImageDesc(gf, posx, posy, imgs[imgn]->xsize, 
 			   imgs[imgn]->ysize, opts->interlace, 
 			   map) == GIF_ERROR) {
+	gif_push_error();
+	i_push_error(0, "Could not save image descriptor");
 	myfree(result);
 	FreeMapObject(map);
 	EGifCloseFile(gf);
@@ -670,16 +937,6 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
   else {
     int want_trans;
 
-    mm_log((1, "i_writegif_low: GOT HERE\n"));
-
-    /* handle the first image separately - since we allow giflib
-       conversion and giflib doesn't give us a separate function to build
-       the colormap. */
-     
-    /* produce a colour map */
-    quant_makemap(quant, imgs, count);
-    result = quant_translate(quant, imgs[0]);
-
     /* get a palette entry for the transparency iff we have an image
        with an alpha channel */
     want_trans = 0;
@@ -689,7 +946,19 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
 	break;
       }
     }
-    want_trans = want_trans && quant->transp != tr_none && quant->mc_count < 256;
+    want_trans = want_trans && quant->transp != tr_none 
+      && quant->mc_count < 256;
+    if (want_trans && quant->mc_size == 256)
+      --quant->mc_size;
+
+    /* handle the first image separately - since we allow giflib
+       conversion and giflib doesn't give us a separate function to build
+       the colormap. */
+     
+    /* produce a colour map */
+    quant_makemap(quant, imgs, count);
+    result = quant_translate(quant, imgs[0]);
+
     if ((map = make_gif_map(quant, opts, want_trans)) == NULL) {
       myfree(result);
       EGifCloseFile(gf);
@@ -701,6 +970,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       ++color_bits;
 
     if (EGifPutScreenDesc(gf, scrw, scrh, color_bits, 0, map) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "Could not save screen descriptor");
       FreeMapObject(map);
       myfree(result);
       EGifCloseFile(gf);
@@ -725,6 +996,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       posx = posy = 0;
     if (EGifPutImageDesc(gf, posx, posy, imgs[0]->xsize, imgs[0]->ysize, 
 			 opts->interlace, NULL) == GIF_ERROR) {
+      gif_push_error();
+      i_push_error(0, "Could not save image descriptor");
       EGifCloseFile(gf);
       mm_log((1, "Error in EGifPutImageDesc."));
       return 0;
@@ -759,6 +1032,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
       if (EGifPutImageDesc(gf, posx, posy, 
 			   imgs[imgn]->xsize, imgs[imgn]->ysize, 
 			   opts->interlace, NULL) == GIF_ERROR) {
+	gif_push_error();
+	i_push_error(0, "Could not save image descriptor");
 	myfree(result);
 	EGifCloseFile(gf);
 	mm_log((1, "Error in EGifPutImageDesc."));
@@ -773,6 +1048,8 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
     }
   }
   if (EGifCloseFile(gf) == GIF_ERROR) {
+    gif_push_error();
+    i_push_error(0, "Could not close GIF file");
     mm_log((1, "Error in EGifCloseFile\n"));
     return 0;
   }
@@ -780,19 +1057,34 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count,
   return 1;
 }
 
+/*
+=item i_writegif_gen(i_quantize *quant, int fd, i_img **imgs, int count, i_gif_opts *opts)
+
+General high-level function to write a GIF to a file.
+
+Writes the GIF images to the specified file handle using the options
+in quant and opts.  See L<image.h/i_quantize> and
+L<image.h/i_gif_opts>.
+
+Returns non-zero on success.
+
+=cut
+*/
+
 undef_int
 i_writegif_gen(i_quantize *quant, int fd, i_img **imgs, int count, 
 	       i_gif_opts *opts) {
   GifFileType *gf;
 
+  i_clear_error();
   mm_log((1, "i_writegif_gen(quant %p, fd %d, imgs %p, count %d, opts %p)\n", 
 	  quant, fd, imgs, count, opts));
 
   gif_set_version(quant, opts);
 
-  mm_log((1, "i_writegif_gen: set ops\n"));
-
   if ((gf = EGifOpenFileHandle(fd)) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create GIF file object");
     mm_log((1, "Error in EGifOpenFileHandle, unable to write image.\n"));
     return 0;
   }
@@ -802,6 +1094,14 @@ i_writegif_gen(i_quantize *quant, int fd, i_img **imgs, int count,
 
 #if IM_GIFMAJOR >= 4
 
+/*
+=item gif_writer_callback(GifFileType *gf, const GifByteType *data, int size)
+
+Internal.  Wrapper for the user write callback function.
+
+=cut
+*/
+
 static int gif_writer_callback(GifFileType *gf, const GifByteType *data, int size)
 {
   i_gen_write_data *gwd = (i_gen_write_data *)gf->UserData;
@@ -810,6 +1110,17 @@ static int gif_writer_callback(GifFileType *gf, const GifByteType *data, int siz
 }
 
 #endif
+
+/*
+=item i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata, int maxlength, i_img **imgs, int count, i_gif_opts *opts)
+
+General high-level function to write a GIF using callbacks to send
+back the data.
+
+Returns non-zero on success.
+
+=cut
+*/
 
 undef_int
 i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
@@ -822,10 +1133,14 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
   extern GifFileType *EGifOpen(void *userData, OutputFunc writeFunc);
   int result;
 
+  i_clear_error();
+
   mm_log((1, "i_writegif_callback(quant %p, i_write_callback_t %p, userdata $p, maxlength %d, imgs %p, count %d, opts %p)\n", 
 	  quant, cb, userdata, maxlength, imgs, count, opts));
   
   if ((gf = EGifOpen(gwd, &gif_writer_callback)) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create GIF file object");
     mm_log((1, "Error in EGifOpenFileHandle, unable to write image.\n"));
     free_gen_write_data(gwd, 0);
     return 0;
@@ -837,3 +1152,135 @@ i_writegif_callback(i_quantize *quant, i_write_callback_t cb, char *userdata,
   return 0;
 #endif
 }
+
+/*
+=item gif_error_msg(int code)
+
+Grabs the most recent giflib error code from GifLastError() and 
+returns a string that describes that error.
+
+The returned pointer points to a static buffer, either from a literal
+C string or a static buffer.
+
+=cut */
+
+static char const *gif_error_msg(int code) {
+  static char msg[80];
+
+  switch (code) {
+  case E_GIF_ERR_OPEN_FAILED: /* should not see this */
+    return "Failed to open given file";
+    
+  case E_GIF_ERR_WRITE_FAILED:
+    return "Write failed";
+
+  case E_GIF_ERR_HAS_SCRN_DSCR: /* should not see this */
+    return "Screen descriptor already passed to giflib";
+
+  case E_GIF_ERR_HAS_IMAG_DSCR: /* should not see this */
+    return "Image descriptor already passed to giflib";
+    
+  case E_GIF_ERR_NO_COLOR_MAP: /* should not see this */
+    return "Neither global nor local color map set";
+
+  case E_GIF_ERR_DATA_TOO_BIG: /* should not see this */
+    return "Too much pixel data passed to giflib";
+
+  case E_GIF_ERR_NOT_ENOUGH_MEM:
+    return "Out of memory";
+    
+  case E_GIF_ERR_DISK_IS_FULL:
+    return "Disk is full";
+    
+  case E_GIF_ERR_CLOSE_FAILED: /* should not see this */
+    return "File close failed";
+ 
+  case E_GIF_ERR_NOT_WRITEABLE: /* should not see this */
+    return "File not writable";
+
+  case D_GIF_ERR_OPEN_FAILED:
+    return "Failed to open file";
+    
+  case D_GIF_ERR_READ_FAILED:
+    return "Failed to read from file";
+
+  case D_GIF_ERR_NOT_GIF_FILE:
+    return "File is not a GIF file";
+
+  case D_GIF_ERR_NO_SCRN_DSCR:
+    return "No screen descriptor detected - invalid file";
+
+  case D_GIF_ERR_NO_IMAG_DSCR:
+    return "No image descriptor detected - invalid file";
+
+  case D_GIF_ERR_NO_COLOR_MAP:
+    return "No global or local color map found";
+
+  case D_GIF_ERR_WRONG_RECORD:
+    return "Wrong record type detected - invalid file?";
+
+  case D_GIF_ERR_DATA_TOO_BIG:
+    return "Data in file too big for image";
+
+  case D_GIF_ERR_NOT_ENOUGH_MEM:
+    return "Out of memory";
+
+  case D_GIF_ERR_CLOSE_FAILED:
+    return "Close failed";
+
+  case D_GIF_ERR_NOT_READABLE:
+    return "File not opened for read";
+
+  case D_GIF_ERR_IMAGE_DEFECT:
+    return "Defective image";
+
+  case D_GIF_ERR_EOF_TOO_SOON:
+    return "Unexpected EOF - invalid file";
+
+  default:
+    sprintf(msg, "Unknown giflib error code %d", code);
+    return msg;
+  }
+}
+
+/*
+=item gif_push_error()
+
+Utility function that takes the current GIF error code, converts it to
+an error message and pushes it on the error stack.
+
+=cut
+*/
+
+static void gif_push_error() {
+  int code = GifLastError(); /* clears saved error */
+
+  i_push_error(code, gif_error_msg(code));
+}
+
+/*
+=head1 BUGS
+
+The Netscape loop extension isn't implemented.  Giflib's extension
+writing code doesn't seem to support writing named extensions in this 
+form.
+
+A bug in giflib is tickled by the i_writegif_callback().  This isn't a
+problem on ungiflib, but causes a SEGV on giflib.  A patch is provided
+in t/t10formats.t
+
+The GIF file tag (GIF87a vs GIF89a) currently isn't set.  Using the
+supplied interface in giflib 4.1.0 causes a SEGV in
+EGifSetGifVersion().  See L<gif_set_version> for an explanation.
+
+=head1 AUTHOR
+
+Arnar M. Hrafnkelsson, addi@umich.edu
+
+=head1 SEE ALSO
+
+perl(1), Imager(3)
+
+=cut
+
+*/

@@ -27,7 +27,6 @@ setcol(i_color *cl,unsigned char r,unsigned char g,unsigned char b,unsigned char
 
 void
 quant_makemap(i_quantize *quant, i_img **imgs, int count) {
-	i_color temp;
 #ifdef HAVE_LIBGIF
   /* giflib does it's own color table generation */
   if (quant->translate == pt_giflib) 
@@ -68,7 +67,11 @@ static void translate_addi(i_quantize *, i_img *, i_palidx *);
    The giflib quantizer ignores the palette.
 */
 i_palidx *quant_translate(i_quantize *quant, i_img *img) {
-  i_palidx *result = mymalloc(img->xsize * img->ysize);
+  i_palidx *result;
+	mm_log((1, "quant_translate(quant %p, img %p)\n", quant, img));
+
+	result = mymalloc(img->xsize * img->ysize);
+
   switch (quant->translate) {
 #ifdef HAVE_LIBGIF
   case pt_giflib:
@@ -115,7 +118,7 @@ static void translate_giflib(i_quantize *quant, i_img *img, i_palidx *out) {
   
   i_color col;
 
-  /*mm_log((1,"i_writegif(0x%x, fd %d, colors %dbpp)\n",im,fd,colors));*/
+	mm_log((1,"i_writegif(quant %p, img %p, out %p)\n", quant, img, out));
   
   /*if (!(im->channels==1 || im->channels==3)) { fprintf(stderr,"Unable to write gif, improper colorspace.\n"); exit(3); }*/
   
@@ -151,14 +154,14 @@ static void translate_giflib(i_quantize *quant, i_img *img, i_palidx *out) {
       }
       if ((GreenBuffer = (GifByteType *) mymalloc((unsigned int) Size)) == NULL) {
         m_fatal(0,"Failed to allocate memory required, aborted.");
-        free(RedBuffer);
+        myfree(RedBuffer);
         return;
       }
     
       if ((BlueBuffer  = (GifByteType *) mymalloc((unsigned int) Size)) == NULL) {
         m_fatal(0,"Failed to allocate memory required, aborted.");
-        free(RedBuffer);
-        free(GreenBuffer);
+        myfree(RedBuffer);
+        myfree(GreenBuffer);
         return;
       }
     
@@ -194,8 +197,8 @@ static void translate_giflib(i_quantize *quant, i_img *img, i_palidx *out) {
     }
   }
 
-  free(RedBuffer);
-  if (img->channels == 3) { free(GreenBuffer); free(BlueBuffer); }
+  myfree(RedBuffer);
+  if (img->channels == 3) { myfree(GreenBuffer); myfree(BlueBuffer); }
 
   /* copy over the color map */
   for (i = 0; i < ColorMapSize; ++i) {
@@ -258,7 +261,8 @@ typedef int (*cmpfunc)(const void*, const void*);
 
 typedef struct {
   unsigned char r,g,b;
-  char state;
+  char fixed;
+  char used;
   int dr,dg,db;
   int cdist;
   int mcount;
@@ -369,7 +373,7 @@ for each side of the cube, but this will require even more memory.
 static void
 makemap_addi(i_quantize *quant, i_img **imgs, int count) {
   cvec *clr;
-  int cnum, i, x, y, bst_idx=0, ld, cd, iter, currhb;
+  int cnum, i, x, y, bst_idx=0, ld, cd, iter, currhb, img_num;
   i_color val;
   float dlt, accerr;
   hashbox hb[512];
@@ -379,11 +383,13 @@ makemap_addi(i_quantize *quant, i_img **imgs, int count) {
     clr[i].r = quant->mc_colors[i].rgb.r;
     clr[i].g = quant->mc_colors[i].rgb.g;
     clr[i].b = quant->mc_colors[i].rgb.b;
-    clr[i].state = 1;
+    clr[i].fixed = 1;
+    clr[i].mcount = 0;
   }
   /* mymalloc doesn't clear memory, so I think we need this */
   for (; i < quant->mc_size; ++i) {
-    clr[i].state = 0;
+    clr[i].fixed = 0;
+    clr[i].mcount = 0;
   }
   cnum = quant->mc_size;
   dlt = 1;
@@ -394,8 +400,8 @@ makemap_addi(i_quantize *quant, i_img **imgs, int count) {
   for(iter=0;iter<3;iter++) {
     accerr=0.0;
     
-    for (i = 0; i < count; ++i) {
-      i_img *im = imgs[i];
+    for (img_num = 0; img_num < count; ++img_num) {
+      i_img *im = imgs[img_num];
       for(y=0;y<im->ysize;y++) for(x=0;x<im->xsize;x++) {
 	ld=196608;
 	i_gpix(im,x,y,&val);
@@ -426,14 +432,16 @@ makemap_addi(i_quantize *quant, i_img **imgs, int count) {
     /*    printf("total error: %.2f\n",sqrt(accerr)); */
 
     for(i=0;i<cnum;i++) {
-      if (clr[i].state) continue; /* skip reserved colors */
+      if (clr[i].fixed) continue; /* skip reserved colors */
 
       if (clr[i].mcount) {
+	clr[i].used = 1;
 	clr[i].r=clr[i].r*(1-dlt)+dlt*clr[i].dr;
 	clr[i].g=clr[i].g*(1-dlt)+dlt*clr[i].dg;
 	clr[i].b=clr[i].b*(1-dlt)+dlt*clr[i].db;
       } else {
-	/* I don't know why - TC */
+	/* let's try something else */
+	clr[i].used = 0;
 	clr[i].r=rand();
 	clr[i].g=rand();
 	clr[i].b=rand();
@@ -458,6 +466,22 @@ makemap_addi(i_quantize *quant, i_img **imgs, int count) {
   }
 #endif
 
+  /* if defined, we only include colours with an mcount or that were
+     supplied in the fixed palette, giving us a smaller output palette */
+#define ONLY_USE_USED
+#ifdef ONLY_USE_USED
+  /* transfer the colors back */
+  quant->mc_count = 0;
+  for (i = 0; i < cnum; ++i) {
+    if (clr[i].fixed || clr[i].used) {
+      /*printf("Adding %d (%d,%d,%d)\n", i, clr[i].r, clr[i].g, clr[i].b);*/
+      quant->mc_colors[quant->mc_count].rgb.r = clr[i].r;
+      quant->mc_colors[quant->mc_count].rgb.g = clr[i].g;
+      quant->mc_colors[quant->mc_count].rgb.b = clr[i].b;
+      ++quant->mc_count;
+    }
+  }
+#else
   /* transfer the colors back */
   for (i = 0; i < cnum; ++i) {
     quant->mc_colors[i].rgb.r = clr[i].r;
@@ -465,6 +489,7 @@ makemap_addi(i_quantize *quant, i_img **imgs, int count) {
     quant->mc_colors[i].rgb.b = clr[i].b;
   }
   quant->mc_count = cnum;
+#endif
 
   /* don't want to keep this */
   myfree(clr);
@@ -601,7 +626,7 @@ static void hbsetup(i_quantize *quant, hashbox *hb) {
 #endif
       } 
     } 
-  } 
+  }
 #ifdef HB_SORT
   myfree(indices); 
 #endif
@@ -1052,7 +1077,7 @@ static void prescan(i_img **imgs,int count, int cnum, cvec *clr) {
   i=0;
   while(i<cnum) {
     /*    printf("prebox[%d].cand=%d\n",k,prebox[k].cand); */
-    if (clr[i].state) { i++; continue; } /* reserved go to next */
+    if (clr[i].fixed) { i++; continue; } /* reserved go to next */
     if (j>=prebox[k].cand) { k++; j=1; } else {
       if (prebox[k].cand == 2) boxcenter(prebox[k].boxnum,&(clr[i]));
       else boxrand(prebox[k].boxnum,&(clr[i]));
@@ -1392,6 +1417,20 @@ unsigned char orddith_maps[][64] =
     208, 192, 152,  88,  84,  20,  64, 104,
     232, 224, 196, 140, 108,  68,  24,  76,
     248, 244, 212, 188, 160, 124,  80,   4,
+  },
+  {
+    /* tiny
+       good for display, bad for print
+       hand generated
+    */
+      0, 128,  32, 192,   8, 136,  40, 200,
+    224,  64, 160, 112, 232,  72, 168, 120,
+     48, 144,  16, 208,  56, 152,  24, 216,
+    176,  96, 240,  80, 184, 104, 248,  88,
+     12, 140,  44, 204,   4, 132,  36, 196,
+    236,  76, 172, 124, 228,  68, 164, 116,
+     60, 156,  28, 220,  52, 148,  20, 212,
+    188, 108, 252,  92, 180, 100, 244,  84,
   },
 };
 

@@ -792,9 +792,7 @@ i_gradgen(i_img *im, int num, int *xo, int *yo, i_color *ival, int dmeasure) {
 void
 i_nearest_color_foo(i_img *im, int num, int *xo, int *yo, i_color *ival, int dmeasure) {
 
-  i_color val;
-  int p, x, y, ch;
-  int channels = im->channels;
+  int p, x, y;
   int xsize    = im->xsize;
   int ysize    = im->ysize;
 
@@ -869,13 +867,11 @@ i_nearest_color(i_img *im, int num, int *xo, int *yo, i_color *oval, int dmeasur
   float c1, c2;
   i_color val;
   int p, x, y, ch;
-  int channels = im->channels;
   int xsize    = im->xsize;
   int ysize    = im->ysize;
   int *cmatch;
 
-  mm_log((1,"i_nearest_color(im %p, num %d, xo %p, yo %p, ival %p, dmeasure %d)\n", im, num, xo, yo, ival, dmeasure));
-  
+  mm_log((1,"i_nearest_color(im %p, num %d, xo %p, yo %p, ival %p, dmeasure %d)\n", im, num, xo, yo, oval, dmeasure));
 
   tval   = mymalloc( sizeof(float)*num*im->channels );
   ival   = mymalloc( sizeof(i_color)*num );
@@ -936,12 +932,9 @@ i_nearest_color(i_img *im, int num, int *xo, int *yo, i_color *oval, int dmeasur
     c2 = 1.0/(float)(cmatch[midx]);
     c1 = 1.0-c2;
     
-    //    printf("pixel [%d %d %d] c1+c2 = %f\n", val.channel[0], val.channel[1], val.channel[2], c1+c2);
-    //    printf("cmatch = %d, c1 = %f, c2 = %f tval=[%f %f %f]\n", cmatch[midx], c1, c2, tval[midx*im->channels], tval[midx*im->channels+1], tval[midx*im->channels+2] );
-
     for(ch = 0; ch<im->channels; ch++) 
       tval[midx*im->channels + ch] = c1*tval[midx*im->channels + ch] + c2 * (float) val.channel[ch];
-    
+  
     
   }
 
