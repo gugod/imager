@@ -43,6 +43,7 @@ New Features:
 
 - font synthesis - synthesize a bold or slanted font from a normal font
   (or even from an existing bold or slanted font)
+- utf8 support for text output
 
 - image rotation, 3 ways of doing rotation:
   - exact multiple of 90 degrees (the easy case) (done)
