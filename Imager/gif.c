@@ -55,6 +55,8 @@ static void gif_push_error(void);
 
 #if IM_GIFMAJOR >= 4
 
+static int gif_read_callback(GifFileType *gft, GifByteType *buf, int length);
+
 /*
 =item gif_scalar_info
 

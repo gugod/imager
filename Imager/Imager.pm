@@ -569,6 +569,41 @@ sub virtual {
   $self->{IMG} and i_img_virtual($self->{IMG});
 }
 
+sub tags {
+  my ($self, %opts) = @_;
+
+  $self->{IMG} or return;
+
+  if (defined $opts{name}) {
+    my @result;
+    my $start = 0;
+    my $found;
+    while (defined($found = i_tags_find($self->{IMG}, $opts{name}, $start))) {
+      push @result, (i_tags_get($self->{IMG}, $found))[1];
+      $start = $found+1;
+    }
+    return wantarray ? @result : $result[0];
+  }
+  elsif (defined $opts{code}) {
+    my @result;
+    my $start = 0;
+    my $found;
+    while (defined($found = i_tags_findn($self->{IMG}, $opts{code}, $start))) {
+      push @result, (i_tags_get($self->{IMG}, $found))[1];
+      $start = $found+1;
+    }
+    return @result;
+  }
+  else {
+    if (wantarray) {
+      return map { [ i_tags_get($self->{IMG}, $_) ] } 0.. i_tags_count($self->{IMG})-1;
+    }
+    else {
+      return i_tags_count($self->{IMG});
+    }
+  }
+}
+
 # Read an image from file
 
 sub read {
@@ -884,6 +919,80 @@ sub write_multi {
     $ERRSTR = "Sorry, write_multi doesn't support $opts->{type} yet";
     return 0;
   }
+}
+
+# read multiple images from a file
+sub read_multi {
+  my ($class, %opts) = @_;
+
+  if ($opts{file} && !exists $opts{type}) {
+    # guess the type 
+    my $type = $FORMATGUESS->($opts{file});
+    $opts{type} = $type;
+  }
+  unless ($opts{type}) {
+    $ERRSTR = "No type parameter supplied and it couldn't be guessed";
+    return;
+  }
+  my $fd;
+  my $file;
+  if ($opts{file}) {
+    $file = IO::File->new($opts{file}, "r");
+    unless ($file) {
+      $ERRSTR = "Could not open file $opts{file}: $!";
+      return;
+    }
+    binmode $file;
+    $fd = fileno($file);
+  }
+  elsif ($opts{fh}) {
+    $fd = fileno($opts{fh});
+    unless ($fd) {
+      $ERRSTR = "File handle specified with fh option not open";
+      return;
+    }
+  }
+  elsif ($opts{fd}) {
+    $fd = $opts{fd};
+  }
+  elsif ($opts{callback} || $opts{data}) {
+    # don't fail here
+  }
+  else {
+    $ERRSTR = "You need to specify one of file, fd, fh, callback or data";
+    return;
+  }
+
+  if ($opts{type} eq 'gif') {
+    my @imgs;
+    if ($fd) {
+      @imgs = i_readgif_multi($fd);
+    }
+    else {
+      if (i_giflib_version < 4.0) {
+        $ERRSTR = "giflib3.x does not support callbacks";
+        return;
+      }
+      if ($opts{callback}) {
+        @imgs = i_readgif_multi_callback($opts{callback})
+      }
+      else {
+        @imgs = i_readgif_multi_scalar($opts{data});
+      }
+    }
+    if (@imgs) {
+      return map { 
+        bless { IMG=>$_, DEBUG=>$DEBUG, ERRSTR=>undef }, 'Imager' 
+      } @imgs;
+    }
+    else {
+      $ERRSTR = _error_as_msg();
+      return;
+    }
+  }
+
+  $ERRSTR = "Cannot read multiple images from $opts{type} files";
+  return;
 }
 
 # Destroy an Imager object
@@ -1579,7 +1688,9 @@ sub newfont  { Imager::Font->new(@_); }
 
 #### Utility routines
 
-sub errstr { $_[0]->{ERRSTR} }
+sub errstr { 
+  ref $_[0] ? $_[0]->{ERRSTR} : $ERRSTR
+}
 
 
 
@@ -1940,6 +2051,49 @@ A simple example:
 			 gif_delays=>[ (10) x @images ] },
 			@images)
     or die "Oh dear!";
+
+You can read multi-image files (currently only GIF files) using the
+read_multi() method:
+
+  my @imgs = Imager->read_multi(file=>'foo.gif')
+    or die "Cannot read images: ",Imager->errstr;
+
+The possible parameters for read_multi() are:
+
+=over
+
+=item file
+
+The name of the file to read in.
+
+=item fh
+
+A filehandle to read in.  This can be the name of a filehandle, but it
+will need the package name, no attempt is currently made to adjust
+this to the caller's package.
+
+=item fd
+
+The numeric file descriptor of an open file (or socket).
+
+=item callback
+
+A function to be called to read in data, eg. reading a blob from a
+database incrementally.
+
+=item data
+
+The data of the input file in memory.
+
+=item type
+
+The type of file.  If the file is parameter is given and provides
+enough information to guess the type, then this parameter is optional.
+
+=back
+
+Note: you cannot use the callback or data parameter with giflib
+versions before 4.0.
 
 =head2 Gif options
 
