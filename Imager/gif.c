@@ -657,6 +657,13 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
       break;
     }
   } while (RecordType != TERMINATE_RECORD_TYPE);
+
+  if (comment) {
+    if (*count) {
+      i_tags_add(&(results[*count-1]->tags), "gif_comment", 0, comment, strlen(comment), 0);
+    }
+    myfree(comment);
+  }
   
   myfree(GifRow);
   
