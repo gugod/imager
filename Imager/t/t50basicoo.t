@@ -24,9 +24,9 @@ my $count;
 for my $type (@types) {
   $count += 31 if $hsh{$type};
 }
-#  for my $type (@mtypes) {
-#    $count += 5 if $hsh{$type};
-#  }
+for my $type (@mtypes) {
+  $count += 7 if $hsh{$type};
+}
 
 print "1..$count\n";
 
@@ -50,7 +50,7 @@ my %files;
                   { file => "testout/t108_24bit.tga" }, );
 my %writeopts =
   (
-   gif=> { make_colors=>'webmap', translate=>'closest' },
+   gif=> { make_colors=>'webmap', translate=>'closest', gifquant=>'gen' },
   );
 
 for my $type (@types) {
@@ -306,10 +306,40 @@ $img2 -> write(file=> 'testout/t50.ppm', type=>'pnm');
 undef($img);
 
 # multi image/file tests
+print "# multi-image write tests\n";
 for my $type (@mtypes) {
   next unless $hsh{$type};
+  print "# $type\n";
 
-  
+  my $file = "testout/t50out.$type";
+  my $wimg = Imager->new;
+
+  # if this doesn't work, we're so screwed up anyway
+  ok($wimg->read(file=>"testout/t50out.$type"),
+     "reading base file", $wimg);
+
+  ok(my $wimg2 = $wimg->copy, "copying base image", $wimg);
+  ok($wimg2->flip(dir=>'h'), "flipping base image", $wimg2);
+
+  my @out = ($wimg, $wimg2);
+  my %extraopts;
+  %extraopts = %{$writeopts{$type}} if $writeopts{$type};
+  ok(Imager->write_multi({ file=>"testout/t50_multi.$type", %extraopts },
+                         @out),
+     "writing multiple to a file", "Imager");
+
+  # make sure we get the same back
+  my @images = Imager->read_multi(file=>"testout/t50_multi.$type");
+  if (ok(@images == @out, "checking read image count")) {
+    for my $i (0 .. $#out) {
+      my $diff = Imager::i_img_diff($out[$i]{IMG}, $images[$i]{IMG});
+      print "# diff $diff\n";
+      ok($diff == 0, "comparing image $i");
+    }
+  }
+  else {
+    skip("wrong number of images read", 2);
+  }
 }
 
 

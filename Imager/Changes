@@ -574,6 +574,7 @@ Revision history for Perl extension Imager.
         - split out Perl iolayer initialization into private methods
         - add tests for each type of iolayer in t50basicoo.t
         - read/write multi-image tiff files
+        - tests in t50basicoo.t for multi-image/file
 
 =================================================================
 

@@ -1181,7 +1181,8 @@ sub write {
 
   if (!$formats{$input{'type'}}) { $self->{ERRSTR}='format not supported'; return undef; }
 
-  my ($IO, $fh) = $self->_get_writer_io(\%input, $input{'type'});
+  my ($IO, $fh) = $self->_get_writer_io(\%input, $input{'type'})
+    or return undef;
 
   # this conditional is probably obsolete
   if ($iolready{$input{'type'}}) {
@@ -1280,11 +1281,12 @@ sub write_multi {
     return 0;
   }
   my @work = map $_->{IMG}, @images;
-  my ($IO, $file) = $class->_get_writer_io($opts, $opts->{'type'});
+  my ($IO, $file) = $class->_get_writer_io($opts, $opts->{'type'})
+    or return undef;
   if ($opts->{'type'} eq 'gif') {
     my $gif_delays = $opts->{gif_delays};
     local $opts->{gif_delays} = $gif_delays;
-    unless (ref $opts->{gif_delays}) {
+    if ($opts->{gif_delays} && !ref $opts->{gif_delays}) {
       # assume the caller wants the same delay for each frame
       $opts->{gif_delays} = [ ($gif_delays) x @images ];
     }
