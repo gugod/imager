@@ -969,7 +969,7 @@ sub read_multi {
       @imgs = i_readgif_multi($fd);
     }
     else {
-      if (i_giflib_version < 4.0) {
+      if (Imager::i_giflib_version() < 4.0) {
         $ERRSTR = "giflib3.x does not support callbacks";
         return;
       }

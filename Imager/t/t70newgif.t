@@ -8,7 +8,7 @@
 # (It may become useful if the test is moved to ./t subdirectory.)
 
 
-BEGIN { $| = 1; print "1..22\n"; }
+BEGIN { $| = 1; print "1..24\n"; }
 END {print "not ok 1\n" unless $loaded;}
 
 use Imager qw(:all :handy);
@@ -117,17 +117,29 @@ if (i_has_format("gif")) {
     @imgs = Imager->read_multi(type=>'gif',
                                callback => $cb) or print "not ";
     print "ok 21\n";
+    close FH;
     @imgs == 2 or print "not ";
     print "ok 22\n";
+
+    open FH, "< testimg/screen2.gif" 
+      or die "Cannot open testimg/screen2.gif: $!";
+    binmode FH;
+    my $data = do { local $/; <FH>; };
+    close FH;
+    @imgs = Imager->read_multi(type=>'gif',
+			       data=>$data) or print "not ";
+    print "ok 23\n";
+    @imgs = 2 or print "not ";
+    print "ok 24\n";
   }
   else {
-    for (21..22) {
+    for (21..24) {
       print "ok $_ # skipped - giflib3 doesn't support callbacks\n";
     }
   }
 }
 else {
-  for (3..22) {
+  for (3..24) {
     print "ok $_ # skipped: no gif support\n";
   }
 }
