@@ -235,6 +235,8 @@ i_t1_cp(i_img *im,int xb,int yb,int channel,int fontnum,float points,char* str,i
   if (im == NULL) { mm_log((1,"i_t1_cp: Null image in input\n")); return(0); }
 
   glyph=T1_AASetString( fontnum, str, len, 0, T1_KERNING, points, NULL);
+  if (glyph == NULL)
+    return 0;
 
   mm_log((1,"metrics: ascent: %d descent: %d\n",glyph->metrics.ascent,glyph->metrics.descent));
   mm_log((1," leftSideBearing: %d rightSideBearing: %d\n",glyph->metrics.leftSideBearing,glyph->metrics.rightSideBearing));
@@ -334,6 +336,8 @@ i_t1_text(i_img *im,int xb,int yb,i_color *cl,int fontnum,float points,char* str
   if (im == NULL) { mm_log((1,"i_t1_cp: Null image in input\n")); return(0); }
 
   glyph=T1_AASetString( fontnum, str, len, 0, T1_KERNING, points, NULL);
+  if (glyph == NULL)
+    return 0;
 
   mm_log((1,"metrics:  ascent: %d descent: %d\n",glyph->metrics.ascent,glyph->metrics.descent));
   mm_log((1," leftSideBearing: %d rightSideBearing: %d\n",glyph->metrics.leftSideBearing,glyph->metrics.rightSideBearing));

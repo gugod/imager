@@ -342,7 +342,7 @@ sub init {
 			order=>'30',
 			def=>'HAVE_LIBT1',
 			inccheck=>sub { $_[0] eq 't1lib.h' },
-			libcheck=>sub { $_[0] eq 'libt1.a' or $_[0] eq "libt1.$lext" },
+			libcheck=>sub { $_[0] eq "libt1$aext" or $_[0] eq "libt1.$lext" },
 			libfiles=>'-lt1',
 			objfiles=>'',
 			docs=>q{

@@ -455,6 +455,8 @@ Revision history for Perl extension Imager.
 	- support for GDI fonts under Win32
 	- made that work for cygwin too (needs the w32api package)
 	- freetype1 support under Win32
+	- t1lib support under Win32
+	- fixed a minor bug in font.c (invalid font files caused a SEGV)
           
 
 =================================================================
