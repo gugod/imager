@@ -598,6 +598,10 @@ Revision history for Perl extension Imager.
 	- Added lib/Imager/Filters.pod, draft of Filters pod.
 	- Added lib/Imager/Engines.pod, draft of Engines pod.
         - added getpixel() and setpixel() methods
+        - replaced old gif options with tags
+        - we now log which memory block is being freed before giving 
+          an error on it being re-freed
+        - fixed stupid bug in deleting tags
 
 
 =================================================================

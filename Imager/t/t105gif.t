@@ -1,7 +1,7 @@
 #!perl -w
 use strict;
 $|=1;
-print "1..40\n";
+print "1..45\n";
 use Imager qw(:all);
 
 sub ok ($$$);
@@ -25,7 +25,7 @@ i_box_filled($timg, 0, 0, 20, 20, $green);
 i_box_filled($timg, 2, 2, 18, 18, $trans);
 
 if (!i_has_format("gif")) {
-  for (1..40) { print "ok $_ # skip no gif support\n"; }
+  for (1..45) { print "ok $_ # skip no gif support\n"; }
 } else {
     open(FH,">testout/t105.gif") || die "Cannot open testout/t105.gif\n";
     binmode(FH);
@@ -449,6 +449,25 @@ EOS
        "re-reading saved paletted images");
     ok(39, i_img_diff($imgs[0], $imgs2[0]) == 0, "imgs[0] mismatch");
     ok(40, i_img_diff($imgs[1], $imgs2[1]) == 0, "imgs[1] mismatch");
+
+    # test that the OO interface warns when we supply old options
+    {
+      my @warns;
+      local $SIG{__WARN__} = sub { push(@warns, "@_") };
+
+      my $ooim = Imager->new;
+      ok(41, $ooim->read(file=>"testout/t105.gif"), "read into object");
+      ok(42, $ooim->write(file=>"testout/t105_warn.gif", interlace=>1),
+        "save from object");
+      ok(43, grep(/Obsolete .* interlace .* gif_interlace/, @warns),
+        "check for warning");
+      init(warn_obsolete=>0);
+      @warns = ();
+      ok(44, $ooim->write(file=>"testout/t105_warn.gif", interlace=>1),
+        "save from object");
+      ok(45, !grep(/Obsolete .* interlace .* gif_interlace/, @warns),
+        "check for warning");
+    }
 }
 
 sub ok ($$$) {

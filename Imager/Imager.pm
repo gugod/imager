@@ -1,7 +1,7 @@
 package Imager;
 
 use strict;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS %formats $DEBUG %filters %DSOs $ERRSTR $fontstate %OPCODES $I2P $FORMATGUESS);
+use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS %formats $DEBUG %filters %DSOs $ERRSTR $fontstate %OPCODES $I2P $FORMATGUESS $warn_obsolete);
 use IO::File;
 
 use Imager::Color;
@@ -363,6 +363,8 @@ BEGIN {
     };
 
   $FORMATGUESS=\&def_guess_type;
+
+  $warn_obsolete = 1;
 }
 
 #
@@ -384,6 +386,9 @@ sub init {
   my %parms=(loglevel=>1,@_);
   if ($parms{'log'}) {
     init_log($parms{'log'},$parms{'loglevel'});
+  }
+  if (exists $parms{'warn_obsolete'}) {
+    $warn_obsolete = $parms{'warn_obsolete'};
   }
 
 #    if ($parms{T1LIB_CONFIG}) { $ENV{T1LIB_CONFIG}=$parms{T1LIB_CONFIG}; }
@@ -1178,16 +1183,54 @@ sub read {
   return $self;
 }
 
+sub _fix_gif_positions {
+  my ($opts, $opt, $msg, @imgs) = @_;
+  
+  my $positions = $opts->{'gif_positions'};
+  my $index = 0;
+  for my $pos (@$positions) {
+    my ($x, $y) = @$pos;
+    my $img = $imgs[$index++];
+    $img->settag(gif_left=>$x);
+    $img->settag(gif_top=>$y) if defined $y;
+  }
+  $$msg .= "replaced with the gif_left and gif_top tags";
+}
+
+my %obsolete_opts =
+  (
+   gif_each_palette=>'gif_local_map',
+   interlace       => 'gif_interlace',
+   gif_delays => 'gif_delay',
+   gif_positions => \&_fix_gif_positions,
+   gif_loop_count => 'gif_loop',
+  );
+
 sub _set_opts {
   my ($self, $opts, $prefix, @imgs) = @_;
 
-  for my $opt (grep /^\Q$prefix/, keys %$opts) {
+  for my $opt (keys %$opts) {
+    my $tagname = $opt;
+    if ($obsolete_opts{$opt}) {
+      my $new = $obsolete_opts{$opt};
+      my $msg = "Obsolete option $opt ";
+      if (ref $new) {
+        $new->($opts, $opt, \$msg, @imgs);
+      }
+      else {
+        $msg .= "replaced with the $new tag ";
+        $tagname = $new;
+      }
+      $msg .= "line ".(caller(2))[2]." of file ".(caller(2))[1];
+      warn $msg if $warn_obsolete && $^W;
+    }
+    next unless $tagname =~ /^\Q$prefix/;
     my $value = $opts->{$opt};
     if (ref $value) {
       if (UNIVERSAL::isa($value, "Imager::Color")) {
         my $tag = sprintf("color(%d,%d,%d,%d)", $value->rgba);
         for my $img (@imgs) {
-          $img->settag(name=>$opt, value=>$tag);
+          $img->settag(name=>$tagname, value=>$tag);
         }
       }
       elsif (ref($value) eq 'ARRAY') {
@@ -1197,7 +1240,7 @@ sub _set_opts {
             if (UNIVERSAL::isa($val, "Imager::Color")) {
               my $tag = sprintf("color(%d,%d,%d,%d)", $value->rgba);
               $i < @imgs and
-                $imgs[$i]->settag(name=>$opt, value=>$tag);
+                $imgs[$i]->settag(name=>$tagname, value=>$tag);
             }
             else {
               $self->_set_error("Unknown reference type " . ref($value) . 
@@ -1207,7 +1250,7 @@ sub _set_opts {
           }
           else {
             $i < @imgs
-              and $imgs[$i]->settag(name=>$opt, value=>$val);
+              and $imgs[$i]->settag(name=>$tagname, value=>$val);
           }
         }
       }
@@ -1220,7 +1263,7 @@ sub _set_opts {
     else {
       # set it as a tag for every image
       for my $img (@imgs) {
-        $img->settag(name=>$opt, value=>$value);
+        $img->settag(name=>$tagname, value=>$value);
       }
     }
   }

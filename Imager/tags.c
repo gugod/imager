@@ -100,6 +100,8 @@ Returns non-zero on success.
 int i_tags_add(i_img_tags *tags, char const *name, int code, char const *data, 
                int size, int idata) {
   i_img_tag work = {0};
+  /*printf("i_tags_add(tags %p [count %d], name %s, code %d, data %p, size %d, idata %d)\n",
+    tags, tags->count, name, code, data, size, idata);*/
   if (tags->tags == NULL) {
     int alloc = 10;
     tags->tags = mymalloc(sizeof(i_img_tag) * alloc);
@@ -135,6 +137,8 @@ int i_tags_add(i_img_tags *tags, char const *name, int code, char const *data,
   work.code = code;
   work.idata = idata;
   tags->tags[tags->count++] = work;
+
+  /*i_tags_print(tags);*/
 
   return 1;
 }
@@ -179,15 +183,18 @@ int i_tags_findn(i_img_tags *tags, int code, int start, int *entry) {
 }
 
 int i_tags_delete(i_img_tags *tags, int entry) {
+  /*printf("i_tags_delete(tags %p [count %d], entry %d)\n",
+    tags, tags->count, entry);*/
   if (tags->tags && entry >= 0 && entry < tags->count) {
     i_img_tag old = tags->tags[entry];
     memmove(tags->tags+entry, tags->tags+entry+1,
-	    tags->count-entry-1);
+	    (tags->count-entry-1) * sizeof(i_img_tag));
     if (old.name)
       myfree(old.name);
     if (old.data)
       myfree(old.data);
     --tags->count;
+
     return 1;
   }
   return 0;
@@ -196,6 +203,8 @@ int i_tags_delete(i_img_tags *tags, int entry) {
 int i_tags_delbyname(i_img_tags *tags, char const *name) {
   int count = 0;
   int i;
+  /*printf("i_tags_delbyname(tags %p [count %d], name %s)\n",
+    tags, tags->count, name);*/
   if (tags->tags) {
     for (i = tags->count-1; i >= 0; --i) {
       if (tags->tags[i].name && strcmp(name, tags->tags[i].name) == 0) {
@@ -204,6 +213,8 @@ int i_tags_delbyname(i_img_tags *tags, char const *name) {
       }
     }
   }
+  /*i_tags_print(tags);*/
+
   return count;
 }
 
@@ -438,11 +449,11 @@ void i_tags_print(i_img_tags *tags) {
     i_img_tag *tag = tags->tags + i;
     printf("Tag %d\n", i);
     if (tag->name)
-      printf(" Name : %s\n", tag->name);
+      printf(" Name : %s (%p)\n", tag->name, tag->name);
     printf(" Code : %d\n", tag->code);
     if (tag->data) {
       int pos;
-      printf(" Data : %d => '", tag->size);
+      printf(" Data : %d (%p) => '", tag->size, tag->data);
       for (pos = 0; pos < tag->size; ++pos) {
 	if (tag->data[pos] == '\\' || tag->data[pos] == '\'') {
 	  putchar('\\');
