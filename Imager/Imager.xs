@@ -2120,24 +2120,14 @@ i_findcolor(im, color)
 int
 i_img_bits(im)
         Imager::ImgRaw  im
-      CODE:
-        RETVAL = im->bits;
-      OUTPUT:
-        RETVAL
 
 int
 i_img_type(im)
         Imager::ImgRaw  im
-      CODE:
-        RETVAL = im->type;
-      OUTPUT:
-        RETVAL
 
-SV *
+int
 i_img_virtual(im)
         Imager::ImgRaw  im
-      CODE:
-        ST(0) = im->virtual ? &PL_sv_yes : &PL_sv_no;
 
 void
 i_gsamp(im, l, r, y, ...)
@@ -2176,4 +2166,59 @@ i_gsamp(im, l, r, y, ...)
             PUSHs(&PL_sv_undef);
           }
         }
+
+Imager::ImgRaw
+i_img_masked_new(targ, mask, x, y, w, h)
+        Imager::ImgRaw targ
+        int x
+        int y
+        int w
+        int h
+      PREINIT:
+        i_img *mask;
+      CODE:
+        if (SvOK(ST(1))) {
+          if (!sv_isobject(ST(1)) 
+              || !sv_derived_from(ST(1), "Imager::ImgRaw")) {
+            croak("i_img_masked_new: parameter 2 must undef or an image");
+          }
+          mask = (i_img *)SvIV((SV *)SvRV(ST(1)));
+        }
+        else
+          mask = NULL;
+        RETVAL = i_img_masked_new(targ, mask, x, y, w, h);
+      OUTPUT:
+        RETVAL
+
+int
+i_plin(im, l, y, ...)
+        Imager::ImgRaw  im
+        int     l
+        int     y
+      PREINIT:
+        i_color *work;
+        int count, i;
+      CODE:
+        if (items > 3) {
+          work = mymalloc(sizeof(i_color) * (items-3));
+          for (i=0; i < items-3; ++i) {
+            if (sv_isobject(ST(i+3)) 
+                && sv_derived_from(ST(i+3), "Imager::Color")) {
+              IV tmp = SvIV((SV *)SvRV(ST(i+3)));
+              work[i] = *(i_color *)tmp;
+            }
+            else {
+              myfree(work);
+              croak("i_plin: pixels must be Imager::Color objects");
+            }
+          }
+          /**(char *)0 = 1;*/
+          RETVAL = i_plin(im, l, l+items-3, y, work);
+          myfree(work);
+        }
+        else {
+          RETVAL = 0;
+        }
+      OUTPUT:
+        RETVAL
 

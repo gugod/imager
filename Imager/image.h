@@ -102,6 +102,10 @@ int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
 #define i_findcolor(im, color, entry) \
   (((im)->i_f_findcolor) ? ((im)->i_f_findcolor)((im), (color), (entry)) : 0)
 
+#define i_img_virtual(im) ((im)->virtual)
+#define i_img_type(im) ((im)->type)
+#define i_img_bits(im) ((im)->bits)
+
 float i_gpix_pch(i_img *im,int x,int y,int ch);
 
 /* functions for drawing primitives */
@@ -387,6 +391,8 @@ extern void quant_transparent(i_quantize *quant, i_palidx *indices, i_img *img, 
 extern i_img *i_img_pal_new(int x, int y, int channels, int maxpal);
 extern i_img *i_img_to_pal(i_img *src, i_quantize *quant);
 extern i_img *i_img_to_rgb(i_img *src);
+extern i_img *i_img_masked_new(i_img *targ, i_img *mask, int x, int y, 
+                               int w, int h);
 
 #ifdef HAVE_LIBJPEG
 i_img* i_readjpeg(int fd,char** iptc_itext,int *tlength);

@@ -14,6 +14,7 @@ maskimg.c - implements masked images/image subsets
 #include "image.h"
 #include "imagei.h"
 
+#include <stdio.h>
 /*
 =item i_img_mask_ext
 
@@ -87,12 +88,12 @@ static i_img IIM_base_masked =
 };
 
 /*
-=item i_img_new_masked(i_img *targ, i_img *mask, int x, int y, int w, int h)
+=item i_img_masked_new(i_img *targ, i_img *mask, int x, int y, int w, int h)
 
 =cut
 */
 
-i_img *i_img_new_masked(i_img *targ, i_img *mask, int x, int y, int w, int h) {
+i_img *i_img_masked_new(i_img *targ, i_img *mask, int x, int y, int w, int h) {
   i_img *im;
   i_img_mask_ext *ext;
 
@@ -137,6 +138,7 @@ static int i_destroy_masked(i_img *im) {
 
 static int i_ppix_masked(i_img *im, int x, int y, i_color *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
+  int result;
 
   if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize)
     return -1;
@@ -146,11 +148,14 @@ static int i_ppix_masked(i_img *im, int x, int y, i_color *pix) {
     if (i_gsamp(ext->mask, x, x+1, y, &samp, NULL, 1) && !samp)
       return 0; /* pretend it was good */
   }
-  return i_ppix(ext->targ, x + ext->xbase, y + ext->ybase, pix);
+  result = i_ppix(ext->targ, x + ext->xbase, y + ext->ybase, pix);
+  im->type = ext->targ->type;
+  return result;
 }
 
 static int i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
+  int result;
 
   if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize)
     return -1;
@@ -160,11 +165,15 @@ static int i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix) {
     if (i_gsamp(ext->mask, x, x+1, y, &samp, NULL, 1) && !samp)
       return 0; /* pretend it was good */
   }
-  return i_ppixf(ext->targ, x + ext->xbase, y + ext->ybase, pix);
+  result = i_ppixf(ext->targ, x + ext->xbase, y + ext->ybase, pix);
+  im->type = ext->targ->type;
+  return result;
 }
 
 static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
   i_img_mask_ext *ext = MASKEXT(im);
+  int result;
+
   if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
       r = im->xsize;
@@ -174,7 +183,7 @@ static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
       i_sample_t *samps = ext->samps;
       int w = r - l;
 
-      i_gsamp(ext->mask, l, r, y, samps, NULL, r-l);
+      i_gsamp(ext->mask, l, r, y, samps, NULL, 1);
       if (w < 10)
         simple = 0;
       else {
@@ -196,6 +205,7 @@ static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
           if (samps[i])
             i_ppix(ext->targ, l + i + ext->xbase, y + ext->ybase, vals + i);
         }
+        im->type = ext->targ->type;
         return r-l;
       }
       else {
@@ -214,12 +224,15 @@ static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
             i_plin(ext->targ, l + start + ext->xbase, l + i + ext->xbase, 
                    y + ext->ybase, vals + start);
         }
+        im->type = ext->targ->type;
         return w;
       }
     }
     else {
-      return i_plin(ext->targ, l + ext->xbase, r + ext->xbase, 
-                    y + ext->ybase, vals);
+      int result = i_plin(ext->targ, l + ext->xbase, r + ext->xbase, 
+                          y + ext->ybase, vals);
+      im->type = ext->targ->type;
+      return result;
     }
   }
   else {
@@ -238,7 +251,7 @@ static int i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals) {
       i_sample_t *samps = ext->samps;
       int w = r - l;
 
-      i_gsamp(ext->mask, l, r, y, samps, NULL, r-l);
+      i_gsamp(ext->mask, l, r, y, samps, NULL, 1);
       if (w < 10)
         simple = 0;
       else {
@@ -260,6 +273,7 @@ static int i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals) {
           if (samps[i])
             i_ppixf(ext->targ, l + i + ext->xbase, y + ext->ybase, vals+i);
         }
+        im->type = ext->targ->type;
         return r-l;
       }
       else {
@@ -278,12 +292,15 @@ static int i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals) {
             i_plinf(ext->targ, l + start + ext->xbase, l + i + ext->xbase, 
                     y + ext->ybase, vals + start);
         }
+        im->type = ext->targ->type;
         return w;
       }
     }
     else {
-      return i_plinf(ext->targ, l + ext->xbase, r + ext->xbase, 
-                    y + ext->ybase, vals);
+      int result = i_plinf(ext->targ, l + ext->xbase, r + ext->xbase, 
+                           y + ext->ybase, vals);
+      im->type = ext->targ->type;
+      return result;
     }
   }
   else {
