@@ -161,13 +161,12 @@ struct cbdata {
   char buffer[CBDATA_BUFSIZE];
 };
 
-/*
 =item call_writer(cbd, buf, size)
 
 Low-level function to call the perl writer callback.
 
 =cut
-*/
+
 static ssize_t call_writer(struct cbdata *cbd, void const *buf, size_t size) {
   int count;
   int success;
