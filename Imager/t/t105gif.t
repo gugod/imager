@@ -221,7 +221,7 @@ EOS
       _add_tags($im, gif_local_map=>1, gif_delay=>150, gif_loop=>10);
       for my $x (0 .. 39) {
 	for my $y (0 .. 39) {
-          $c->set($x, $x * 6, $y * 6, 32*$g+$x+$y);
+          $c->set($x * 6, $y * 6, 32*$g+$x+$y, 255);
 	  i_box_filled($im, $x*5, $y*5, $x*5+4, $y*5+4, $c);
 	}
       }
