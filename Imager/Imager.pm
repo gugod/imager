@@ -2746,8 +2746,8 @@ source.
   gradgen         xo yo colors dist
   hardinvert
   noise           amount(3) subtype(0)
-  radnoise
-  turbnoise
+  radnoise        xo(100) yo(100) ascale(17.0) rscale(0.02)
+  turbnoise       xo(0.0) yo(0.0) scale(10.0)
 
 The default values are in parenthesis.  All parameters must have some
 value but if a parameter has a default value it may be omitted when
@@ -2784,18 +2784,41 @@ bigger blurs.  For a definition of Gaussian Blur, see:
 
 =item gradgen
 
-generates a gradient, with the given I<colors> at the corresponding
+renders a gradient, with the given I<colors> at the corresponding
 points (x,y) in I<xo> and I<yo>.  You can specify the way distance is
 measured for color blendeing by setting I<dist> to 0 for Euclidean, 1
 for Euclidean squared, and 2 for Manhattan distance.
 
 =item hardinvert
 
+inverts the image, black to white, white to black.  All channels are
+inverted, including the alpha channel if any.
 
+=item noise
+
+adds noise of the given I<amount> to the image.  If I<subtype> is
+zero, the noise is even to each channel, otherwise noise is added to
+each channel independently.
+
+=item radnoise
+
+renders radiant Perlin turbulent noise.  The centre of the noise is at
+(I<xo>, I<yo>), I<ascale> controls the angular scale of the noise ,
+and I<rscale> the radial scale, higher numbers give more detail.
+
+=item turbnoise
+
+renders Perlin turbulent noise.  (I<xo>, I<yo>) controls the origin of
+the noise, and I<scale> the scale of the noise, with lower numbers
+giving more detail.
 
 =back
 
-FIXME: make a seperate pod for filters?
+A demonstration of the the filters can be found at:
+
+  http://www.develop-help.com/imager/filters.html
+
+(This is a slow link.)
 
 =head2 Color transformations
 
