@@ -461,6 +461,9 @@ Revision history for Perl extension Imager.
         - freetype 2 support
         - exposed the matrix_transform() function to the OO interface
         - added Imager::Matrix2d convenience class
+        - support for setting the resolution when writing to PNG
+        - retrieve physical resolution to tags when reading from PNG
+        - found an XS bug in the interface to i_tags_add()
 
 =================================================================
 

@@ -216,3 +216,85 @@ int i_tags_delbycode(i_img_tags *tags, int code) {
   return count;
 }
 
+int i_tags_get_float(i_img_tags *tags, char *name, int code, double *value) {
+  int index;
+  i_img_tag *entry;
+
+  if (name) {
+    if (!i_tags_find(tags, name, 0, &index))
+      return 0;
+  }
+  else {
+    if (!i_tags_findn(tags, code, 0, &index))
+      return 0;
+  }
+  entry = tags->tags+index;
+  if (entry->data)
+    *value = atof(entry->data);
+  else
+    *value = entry->idata;
+
+  return 1;
+}
+
+int i_tags_set_float(i_img_tags *tags, char *name, int code, double value) {
+  char temp[40];
+
+  sprintf(temp, "%.30g", value);
+  if (name)
+    i_tags_delbyname(tags, name);
+  else
+    i_tags_delbycode(tags, code);
+
+  return i_tags_add(tags, name, code, temp, strlen(temp), 0);
+}
+
+int i_tags_get_int(i_img_tags *tags, char *name, int code, int *value) {
+  int index;
+  i_img_tag *entry;
+
+  if (name) {
+    if (!i_tags_find(tags, name, 0, &index))
+      return 0;
+  }
+  else {
+    if (!i_tags_findn(tags, code, 0, &index))
+      return 0;
+  }
+  entry = tags->tags+index;
+  if (entry->data)
+    *value = atoi(entry->data);
+  else
+    *value = entry->idata;
+
+  return 1;
+}
+
+int i_tags_get_string(i_img_tags *tags, char *name, int code, 
+                      char *value, size_t value_size) {
+  int index;
+  i_img_tag *entry;
+
+  if (name) {
+    if (!i_tags_find(tags, name, 0, &index))
+      return 0;
+  }
+  else {
+    if (!i_tags_findn(tags, code, 0, &index))
+      return 0;
+  }
+  entry = tags->tags+index;
+  if (entry->data) {
+    size_t cpsize = value_size < entry->size ? value_size : entry->size;
+    memcpy(value, entry->data, cpsize);
+    if (cpsize == value_size)
+      --cpsize;
+    value[cpsize] = '\0';
+  }
+  else {
+    sprintf(value, "%d", entry->data);
+  }
+
+  return 1;
+}
+

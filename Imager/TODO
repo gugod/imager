@@ -25,6 +25,8 @@ MultiImage & metadata support:
   local errors?
 - SEE design/represent.txt for proposed new structure and
   interface design that takes these factors into account.
+- define common i_* tags for specifying attribute common among images
+  like spatial resolution
 
 New Features:
 - Add mng support.

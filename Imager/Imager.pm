@@ -3376,6 +3376,26 @@ the first block of the first gif comment before each image.
 Where applicable, the ("name") is the name of that field from the GIF89 
 standard.
 
+Some standard tags will be implemented as time goes by:
+
+=over
+
+=item i_xres
+
+=item i_yres
+
+The spatial resolution of the image in pixels per inch.  If the image
+format uses a different scale, eg. pixels per meter, then this value
+is converted.  A floating point number stored as a string.
+
+=item i_aspect_only
+
+If this is non-zero then the values in i_xres and i_yres are treated
+as a ratio only.  If the image format does not support aspect rations
+then this is scaled so the smaller value is 72dpi.
+
+=back
+
 =head1 BUGS
 
 box, arc, circle do not support antialiasing yet.  arc, is only filled

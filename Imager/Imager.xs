@@ -2613,7 +2613,7 @@ i_tags_add(im, name, code, data, idata)
         else
           name = NULL;
         if (SvOK(ST(3)))
-          name = SvPV(ST(3), len);
+          data = SvPV(ST(3), len);
         else {
           data = NULL;
           len = 0;
