@@ -222,11 +222,12 @@ static i_img IIM_base_8bit_direct =
 
   NULL, /* i_f_gpal */
   NULL, /* i_f_ppal */
-  NULL, /* i_f_addcolor */
-  NULL, /* i_f_getcolor */
+  NULL, /* i_f_addcolors */
+  NULL, /* i_f_getcolors */
   NULL, /* i_f_colorcount */
   NULL, /* i_f_maxcolors */
   NULL, /* i_f_findcolor */
+  NULL, /* i_f_setcolors */
 
   NULL, /* i_f_destroy */
 };
@@ -665,8 +666,8 @@ i_copy(i_img *im, i_img *src) {
     /* copy across the palette */
     count = i_colorcount(im);
     for (index = 0; index < count; ++index) {
-      i_getcolor(src, index, &temp);
-      i_addcolor(im, &temp);
+      i_getcolors(src, index, &temp, 1);
+      i_addcolors(im, &temp, 1);
     }
 
     vals = mymalloc(sizeof(i_palidx) * x1);
@@ -1647,7 +1648,7 @@ int i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp,
       r = im->xsize;
     if (r > l) {
       int ret;
-      int i, ch;
+      int i;
       work = mymalloc(sizeof(i_sample_t) * (r-l));
       ret = i_gsamp(im, l, r, y, work, chans, chan_count);
       for (i = 0; i < ret; ++i) {
@@ -1677,21 +1678,30 @@ im->ext_data points at.
 
 =over
 
-=item i_addcolor_forward(i_img *im, i_color *color)
+=item i_addcolors_forward(i_img *im, i_color *colors, int count)
 
 =cut
 */
-int i_addcolor_forward(i_img *im, i_color *color) {
-  return i_addcolor(*(i_img **)im->ext_data, color);
+int i_addcolors_forward(i_img *im, i_color *colors, int count) {
+  return i_addcolors(*(i_img **)im->ext_data, colors, count);
 }
 
 /*
-=item i_getcolor_forward(i_img *im, int i, i_color *color)
+=item i_getcolors_forward(i_img *im, int i, i_color *color, int count)
 
 =cut
 */
-int i_getcolor_forward(i_img *im, int i, i_color *color) {
-  return i_getcolor(*(i_img **)im->ext_data, i, color);
+int i_getcolors_forward(i_img *im, int i, i_color *color, int count) {
+  return i_getcolors(*(i_img **)im->ext_data, i, color, count);
+}
+
+/*
+=item i_setcolors_forward(i_img *im, int i, i_color *color, int count)
+
+=cut
+*/
+int i_setcolors_forward(i_img *im, int i, i_color *color, int count) {
+  return i_setcolors(*(i_img **)im->ext_data, i, color, count);
 }
 
 /*

@@ -97,13 +97,15 @@ typedef int (*i_f_gsampf_t)(i_img *im, int x, int r, int y, i_fsample_t *samp,
 
 typedef int (*i_f_gpal_t)(i_img *im, int x, int r, int y, i_palidx *vals);
 typedef int (*i_f_ppal_t)(i_img *im, int x, int r, int y, i_palidx *vals);
-typedef int (*i_f_addcolor_t)(i_img *im, i_color *);
-typedef int (*i_f_getcolor_t)(i_img *im, int i, i_color *);
+typedef int (*i_f_addcolors_t)(i_img *im, i_color *colors, int count);
+typedef int (*i_f_getcolors_t)(i_img *im, int i, i_color *, int count);
 typedef int (*i_f_colorcount_t)(i_img *im);
 typedef int (*i_f_maxcolors_t)(i_img *im);
 typedef int (*i_f_findcolor_t)(i_img *im, i_color *color, i_palidx *entry);
+typedef int (*i_f_setcolors_t)(i_img *im, int index, i_color *colors, 
+                              int count);
 
-typedef int (*i_f_destroy_t)(i_img *im);
+typedef void (*i_f_destroy_t)(i_img *im);
 
 struct i_img_ {
   int channels;
@@ -133,11 +135,12 @@ struct i_img_ {
   /* only valid for type == i_palette_type */
   i_f_gpal_t i_f_gpal;
   i_f_ppal_t i_f_ppal;
-  i_f_addcolor_t i_f_addcolor;
-  i_f_getcolor_t i_f_getcolor;
+  i_f_addcolors_t i_f_addcolors;
+  i_f_getcolors_t i_f_getcolors;
   i_f_colorcount_t i_f_colorcount;
   i_f_maxcolors_t i_f_maxcolors;
   i_f_findcolor_t i_f_findcolor;
+  i_f_setcolors_t i_f_setcolors;
 
   i_f_destroy_t i_f_destroy;
 };

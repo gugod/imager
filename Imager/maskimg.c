@@ -33,7 +33,7 @@ typedef struct {
 
 #define MASKEXT(im) ((i_img_mask_ext *)((im)->ext_data))
 
-static int i_destroy_masked(i_img *im);
+static void i_destroy_masked(i_img *im);
 static int i_ppix_masked(i_img *im, int x, int y, i_color *pix);
 static int i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix);
 static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals);
@@ -81,11 +81,12 @@ static i_img IIM_base_masked =
 
   i_gpal_masked, /* i_f_gpal */
   i_ppal_masked, /* i_f_ppal */
-  i_addcolor_forward, /* i_f_addcolor */
-  i_getcolor_forward, /* i_f_getcolor */
+  i_addcolors_forward, /* i_f_addcolors */
+  i_getcolors_forward, /* i_f_getcolors */
   i_colorcount_forward, /* i_f_colorcount */
   i_maxcolors_forward, /* i_f_maxcolors */
   i_findcolor_forward, /* i_f_findcolor */
+  i_setcolors_forward, /* i_f_setcolors */
 
   i_destroy_masked, /* i_f_destroy */
 };
@@ -161,7 +162,7 @@ Internal function.
 =cut
 */
 
-static int i_destroy_masked(i_img *im) {
+static void i_destroy_masked(i_img *im) {
   myfree(MASKEXT(im)->samps);
   myfree(im->ext_data);
 }

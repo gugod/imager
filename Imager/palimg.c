@@ -29,11 +29,13 @@ static int i_plin_p(i_img *im, int l, int r, int y, i_color *vals);
 static int i_gsamp_p(i_img *im, int l, int r, int y, i_sample_t *samps, int *chans, int chan_count);
 static int i_gpal_p(i_img *pm, int l, int r, int y, i_palidx *vals);
 static int i_ppal_p(i_img *pm, int l, int r, int y, i_palidx *vals);
-static int i_addcolor_p(i_img *im, i_color *color);
-static int i_getcolor_p(i_img *im, int i, i_color *color);
+static int i_addcolors_p(i_img *im, i_color *color, int count);
+static int i_getcolors_p(i_img *im, int i, i_color *color, int count);
 static int i_colorcount_p(i_img *im);
 static int i_maxcolors_p(i_img *im);
 static int i_findcolor_p(i_img *im, i_color *color, i_palidx *entry);
+static int i_setcolors_p(i_img *im, int index, i_color *color, int count);
+
 static int i_destroy_p(i_img *im);
 
 static i_img IIM_base_8bit_pal =
@@ -61,11 +63,12 @@ static i_img IIM_base_8bit_pal =
 
   i_gpal_p, /* i_f_gpal */
   i_ppal_p, /* i_f_ppal */
-  i_addcolor_p, /* i_f_addcolor */
-  i_getcolor_p, /* i_f_getcolor */
+  i_addcolors_p, /* i_f_addcolors */
+  i_getcolors_p, /* i_f_getcolors */
   i_colorcount_p, /* i_f_colorcount */
   i_maxcolors_p, /* i_f_maxcolors */
   i_findcolor_p, /* i_f_findcolor */
+  i_setcolors_p, /* i_f_setcolors */
 
   i_destroy_p, /* i_f_destroy */
 };
@@ -445,29 +448,38 @@ int i_ppal_p(i_img *im, int l, int r, int y, i_palidx *vals) {
 }
 
 /*
-=item i_addcolor_p(i_img *im, i_color *color)
+=item i_addcolors_p(i_img *im, i_color *color, int count)
 
 =cut
 */
-int i_addcolor_p(i_img *im, i_color *color) {
-  if (PALEXT(im)->count < PALEXT(im)->alloc) {
-    int index = PALEXT(im)->count++;
-    PALEXT(im)->pal[index] = *color;
+int i_addcolors_p(i_img *im, i_color *color, int count) {
+  if (PALEXT(im)->count + count <= PALEXT(im)->alloc) {
+    int result = PALEXT(im)->count;
+    int index = result;
 
-    return index;
+    PALEXT(im)->count += count;
+    while (count) {
+      PALEXT(im)->pal[index++] = *color++;
+      --count;
+    }
+
+    return result;
   }
   else
     return -1;
 }
 
 /*
-=item i_getcolor_p(i_img *im, int i, i_color *color)
+=item i_getcolors_p(i_img *im, int i, i_color *color, int count)
 
 =cut
 */
-int i_getcolor_p(i_img *im, int i, i_color *color) {
-  if (i >= 0 && i < PALEXT(im)->count) {
-    *color = PALEXT(im)->pal[i];
+int i_getcolors_p(i_img *im, int i, i_color *color, int count) {
+  if (i >= 0 && i+count <= PALEXT(im)->count) {
+    while (count) {
+      *color++ = PALEXT(im)->pal[i++];
+      --count;
+    }
     return 1;
   }
   else
@@ -499,6 +511,23 @@ int i_colorcount_p(i_img *im) {
 */
 int i_maxcolors_p(i_img *im) {
   return PALEXT(im)->alloc;
+}
+
+/*
+=item i_setcolors_p(i_img *im, int index, i_color *colors, int count)
+
+=cut
+*/
+int i_setcolors_p(i_img *im, int index, i_color *colors, int count) {
+  if (index >= 0 && count >= 1 && index + count < PALEXT(im)->count) {
+    while (count) {
+      PALEXT(im)->pal[index++] = *colors++;
+      --count;
+    }
+    return 1;
+  }
+
+  return 0;
 }
 
 /*

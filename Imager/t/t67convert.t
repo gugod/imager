@@ -2,7 +2,7 @@ Imager::init("log"=>'testout/t67convert.log');
 
 use Imager qw(:all :handy);
 
-print "1..12\n";
+print "1..17\n";
 
 my $imbase = Imager::ImgRaw::new(200,300,3);
 
@@ -97,4 +97,34 @@ else {
   abs($ch[0] - 1) <= 0.0001 && abs($ch[1]) <= 0.0001 && abs($ch[2]) <= 0.0001
     or print "not ";
   print "ok 12\n";
+}
+
+# test against palette based images
+my $impal = Imager::i_img_pal_new(200, 300, 3, 256);
+my $black = NC(0, 0, 0);
+my $blackindex = Imager::i_addcolors($impal, $black)
+  or print "not ";
+print "ok 13\n";
+for my $y (0..299) {
+  Imager::i_ppal($impal, 0, $y, ($black) x 200);
+}
+my $impalout = Imager::i_img_pal_new(200, 300, 3, 256);
+if (i_convert($impalout, $impal, [ [ 0, 0, 0, 0 ],
+                                   [ 0, 0, 0, 1 ],
+                                   [ 0, 0, 0, 0 ] ])) {
+  Imager::i_img_type($impalout) == 1 or print "not ";
+  print "ok 14\n";
+  Imager::i_colorcount($impalout) == 1 or print "not ";
+  print "ok 15\n";
+  my $c = Imager::i_getcolors($impalout, $blackindex) or print "not ";
+  print "ok 16\n";
+  my @ch = $c->rgba;
+  print "# @ch\n";
+  $ch[0] == 0 && $ch[1] == 255 && $ch[2] == 0
+    or print "not ";
+  print "ok 17\n";
+}
+else {
+  print "not ok 14 # could not convert paletted image\n";
+  print map "ok $_ # skipped\n", 15..17;
 }

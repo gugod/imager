@@ -156,13 +156,14 @@ print "ok 52\n";
 
 sub check_add {
   my ($base, $im, $color, $expected) = @_;
-  my $index = i_addcolor($im, $color)
+  my $index = i_addcolors($im, $color)
     or print "not ";
   print "ok ",$base++,"\n";
+  print "# $index\n";
   $index == $expected
     or print "not ";
   print "ok ",$base++,"\n";
-  my $new = i_getcolor($im, $index)
+  my ($new) = i_getcolors($im, $index)
     or print "not ";
   print "ok ",$base++,"\n";
   color_cmp($new, $color) == 0

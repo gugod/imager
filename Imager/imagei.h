@@ -21,10 +21,12 @@ extern int i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp,
    assuming the underlying image is the first pointer in whatever
    ext_data points at
 */
-extern int i_addcolor_forward(i_img *im, i_color *);
-extern int i_getcolor_forward(i_img *im, int i, i_color *);
+extern int i_addcolors_forward(i_img *im, i_color *, int count);
+extern int i_getcolors_forward(i_img *im, int i, i_color *, int count);
 extern int i_colorcount_forward(i_img *im);
 extern int i_maxcolors_forward(i_img *im);
 extern int i_findcolor_forward(i_img *im, i_color *color, i_palidx *entry);
+extern int i_setcolors_forward(i_img *im, int index, i_color *colors, 
+                               int count);
 
 #endif

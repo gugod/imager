@@ -1,5 +1,6 @@
 #include "image.h"
 #include "png.h"
+#include <stdio.h>
 
 /* Check to see if a file is a PNG file using png_sig_cmp().  png_sig_cmp()
  * returns zero if the image is a PNG and nonzero if it isn't a PNG.

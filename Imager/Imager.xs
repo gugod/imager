@@ -1845,7 +1845,6 @@ i_errors()
       PREINIT:
         i_errmsg *errors;
 	int i;
-	int count;
 	AV *av;
 	SV *ref;
 	SV *sv;
@@ -2100,13 +2099,29 @@ i_ppal(im, l, y, ...)
         RETVAL
 
 SV *
-i_addcolor(im, color)
+i_addcolors(im, ...)
         Imager::ImgRaw  im
-        Imager::Color   color
       PREINIT:
         int index;
+        i_color *colors;
+        int i;
       CODE:
-        index = i_addcolor(im, color);
+        if (items < 2)
+          croak("i_addcolors: no colors to add");
+        colors = mymalloc((items-1) * sizeof(i_color));
+        for (i=0; i < items-1; ++i) {
+          if (sv_isobject(ST(i+1)) 
+              && sv_derived_from(ST(i+1), "Imager::Color")) {
+            IV tmp = SvIV((SV *)SvRV(ST(i+1)));
+            colors[i] = *(i_color *)tmp;
+          }
+          else {
+            myfree(colors);
+            croak("i_plin: pixels must be Imager::Color objects");
+          }
+        }
+        index = i_addcolors(im, colors, items-1);
+        myfree(colors);
         if (index == 0) {
           ST(0) = sv_2mortal(newSVpv("0 but true", 0));
         }
@@ -2117,22 +2132,59 @@ i_addcolor(im, color)
           ST(0) = sv_2mortal(newSViv(index));
         }
 
-SV *
-i_getcolor(im, index)
+int 
+i_setcolors(im, index, ...)
+        Imager::ImgRaw  im
+        int index
+      PREINIT:
+        i_color *colors;
+        int i;
+      CODE:
+        if (items < 3)
+          croak("i_setcolors: no colors to add");
+        colors = mymalloc((items-2) * sizeof(i_color));
+        for (i=0; i < items-1; ++i) {
+          if (sv_isobject(ST(i+2)) 
+              && sv_derived_from(ST(i+2), "Imager::Color")) {
+            IV tmp = SvIV((SV *)SvRV(ST(i+2)));
+            colors[i] = *(i_color *)tmp;
+          }
+          else {
+            myfree(colors);
+            croak("i_plin: pixels must be Imager::Color objects");
+          }
+        }
+        RETVAL = i_setcolors(im, index, colors, items-2);
+        myfree(colors);
+
+void
+i_getcolors(im, index, ...)
         Imager::ImgRaw im
         int index
       PREINIT:
-        i_color *color;
-      CODE:
-        color = mymalloc(sizeof(i_color));
-        if (i_getcolor(im, index, color)) {
-          ST(0) = sv_newmortal();
-          sv_setref_pv(ST(0), "Imager::Color", (void *)color);
+        i_color *colors;
+        int count = 1;
+        int i;
+      PPCODE:
+        if (items > 3)
+          croak("i_getcolors: too many arguments");
+        if (items == 3)
+          count = SvIV(ST(2));
+        if (count < 1)
+          croak("i_getcolors: count must be positive");
+        colors = mymalloc(sizeof(i_color) * count);
+        if (i_getcolors(im, index, colors, count)) {
+          for (i = 0; i < count; ++i) {
+            i_color *pv;
+            SV *sv = sv_newmortal();
+            pv = mymalloc(sizeof(i_color));
+            *pv = colors[i];
+            sv_setref_pv(sv, "Imager::Color", (void *)pv);
+            PUSHs(sv);
+          }
         }
-        else {
-          myfree(color);
-          ST(0) = &PL_sv_undef;
-        }
+        myfree(colors);
+
 
 SV *
 i_colorcount(im)

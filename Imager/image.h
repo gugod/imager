@@ -96,10 +96,14 @@ int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
   (((im)->i_f_gpal) ? ((im)->i_f_gpal)((im), (l), (r), (y), (vals)) : 0)
 #define i_ppal(im, l, r, y, vals) \
   (((im)->i_f_ppal) ? ((im)->i_f_ppal)((im), (l), (r), (y), (vals)) : 0)
-#define i_addcolor(im, color) \
-  (((im)->i_f_addcolor) ? ((im)->i_f_addcolor)((im), (color)) : 0)
-#define i_getcolor(im, index, color) \
-  (((im)->i_f_getcolor) ? ((im)->i_f_getcolor)((im), (index), (color)) : 0)
+#define i_addcolors(im, colors, count) \
+  (((im)->i_f_addcolors) ? ((im)->i_f_addcolors)((im), (colors), (count)) : 0)
+#define i_getcolors(im, index, color, count) \
+  (((im)->i_f_getcolors) ? \
+   ((im)->i_f_getcolors)((im), (index), (color), (count)) : 0)
+#define i_setcolors(im, index, color, count) \
+  (((im)->i_f_setcolors) ? \
+   ((im)->i_f_setcolors)((im), (index), (color), (count)) : 0)
 #define i_colorcount(im) \
   (((im)->i_f_colorcount) ? ((im)->i_f_colorcount)(im) : -1)
 #define i_maxcolors(im) \
