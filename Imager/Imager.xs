@@ -578,7 +578,8 @@ i_img_getdata(im)
     Imager::ImgRaw     im
              PPCODE:
 	       EXTEND(SP, 1);
-               PUSHs(sv_2mortal(newSVpv(im->data, im->bytes)));
+               PUSHs(im->idata ? sv_2mortal(newSVpv(im->idata, im->bytes)) 
+		     : &PL_sv_undef);
 
 
 void

@@ -240,7 +240,7 @@ i_readpng(int fd) {
   im = i_img_empty_ch(NULL, width, height, channels);
   for (pass = 0; pass < number_passes; pass++)
     for (y = 0; y < height; y++) {
-      png_read_row(png_ptr,(png_bytep) &(im->data[channels*width*y]), NULL);
+      png_read_row(png_ptr,(png_bytep) &(im->idata[channels*width*y]), NULL);
     }
   /* read rest of file, and get additional chunks in info_ptr - REQUIRED */
   
@@ -331,7 +331,26 @@ i_writepng(i_img *im,int fd) {
 	       PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
   png_write_info(png_ptr, info_ptr);
-  for (y = 0; y < height; y++) png_write_row(png_ptr, (png_bytep) &(im->data[channels*width*y]));
+  if (!im->virtual && im->type == i_direct_type && im->bits == i_8_bits) {
+    for (y = 0; y < height; y++) 
+      png_write_row(png_ptr, (png_bytep) &(im->idata[channels*width*y]));
+  }
+  else {
+    unsigned char *data = mymalloc(im->xsize);
+    if (data) {
+      int mask = (1 << im->channels) - 1;
+      for (y = 0; y < height; y++) {
+        i_gsamp(im, 0, im->xsize, y, data, mask);
+        png_write_row(png_ptr, (png_bytep)data);
+      }
+      myfree(data);
+    }
+    else {
+      fclose(fp);
+      png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
+      return 0;
+    }
+  }
   png_write_end(png_ptr, info_ptr);
   png_destroy_write_struct(&png_ptr, (png_infopp)NULL);
 
@@ -410,7 +429,7 @@ i_readpng_scalar(char *data, int length) {
   png_read_update_info(png_ptr, info_ptr);
   mm_log((1,"made it to here 1\n"));
   for (pass = 0; pass < number_passes; pass++)
-    for (y = 0; y < height; y++) { png_read_row(png_ptr,(png_bytep) &(im->data[channels*width*y]), NULL); }
+    for (y = 0; y < height; y++) { png_read_row(png_ptr,(png_bytep) &(im->idata[channels*width*y]), NULL); }
   mm_log((1,"made it to here 2\n"));
   png_read_end(png_ptr, info_ptr); 
   mm_log((1,"made it to here 3\n"));

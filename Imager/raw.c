@@ -4,6 +4,7 @@
 #include <unistd.h>
 #endif
 #include <string.h>
+#include <errno.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -65,7 +66,8 @@ i_readraw(int fd,int x,int y,int datachannels,int storechannels,int intrl) {
     if (rc!=inbuflen) { fprintf(stderr,"Premature end of file.\n"); exit(2); }
     interleave(inbuffer,ilbuffer,im->xsize,datachannels);
     expandchannels(ilbuffer,exbuffer,im->xsize,datachannels,storechannels);
-    memcpy(&(im->data[im->xsize*storechannels*k]),exbuffer,exbuflen);
+    /* FIXME? Do we ever want to save to a virtual image? */
+    memcpy(&(im->idata[im->xsize*storechannels*k]),exbuffer,exbuflen);
     k++;
   }
 
@@ -80,11 +82,70 @@ i_readraw(int fd,int x,int y,int datachannels,int storechannels,int intrl) {
 undef_int
 i_writeraw(i_img* im,int fd) {
   int rc;
+
+  i_clear_error();
   mm_log((1,"writeraw(im 0x%x,fd %d)\n",im,fd));
   
   if (im == NULL) { mm_log((1,"Image is empty\n")); return(0); }
-  rc=mywrite(fd,im->data,im->bytes);
-  if (rc!=im->bytes) { mm_log((1,"i_writeraw: Couldn't write to file\n")); return(0); }
+  if (!im->virtual) {
+    rc=mywrite(fd,im->idata,im->bytes);
+    if (rc!=im->bytes) { 
+      i_push_error(errno, "Could not write to file");
+      mm_log((1,"i_writeraw: Couldn't write to file\n")); 
+      return(0);
+    }
+  }
+  else {
+    int mask = ( 1 << im->channels ) - 1;
+    int y;
+    
+    if (im->type == i_direct_type) {
+      /* just save it as 8-bits, maybe support saving higher bit count
+         raw images later */
+      int line_size = im->xsize * im->channels;
+      unsigned char *data = mymalloc(line_size);
+      if (data) {
+        int y = 0;
+        int rc = line_size;
+        while (rc == line_size && y < im->ysize) {
+          i_gsamp(im, 0, im->xsize, y, data, mask);
+          rc = mywrite(fd, data, line_size);
+          ++y;
+        }
+      }
+      else {
+        i_push_error(0, "Out of memory");
+        return 0;
+      }
+      if (rc != line_size) {
+        i_push_error(errno, "write error");
+        return 0;
+      }
+    }
+    else {
+      /* paletted image - assumes the caller puts the palette somewhere 
+         else
+      */
+      int line_size = sizeof(i_palidx) * im->xsize;
+      i_palidx *data = mymalloc(sizeof(i_palidx) * im->xsize);
+      if (data) {
+        int y = 0;
+        while (rc == line_size && y < im->ysize) {
+          rc = mywrite(fd, data, line_size);
+          ++y;
+        }
+        myfree(data);
+      }
+      else {
+        i_push_error(0, "Out of memory");
+        return 0;
+      }
+      if (rc != line_size) {
+        i_push_error(errno, "write error");
+        return 0;
+      }
+    }
+  }
   return(1);
 }
 

@@ -411,14 +411,35 @@ i_writeppm(i_img *im,int fd) {
 
   if (im->channels==3) {
     sprintf(header,"P6\n#CREATOR: Imager\n%d %d\n255\n",im->xsize,im->ysize);
-    
+
     if (mywrite(fd,header,strlen(header))<0) {
       i_push_error(errno, "could not write ppm header");
       mm_log((1,"i_writeppm: unable to write ppm header.\n"));
       return(0);
     }
     
-    rc=mywrite(fd,im->data,im->bytes);
+    if (!im->virtual && im->bits == i_8_bits && im->type == i_direct_type) {
+      rc=mywrite(fd,im->idata,im->bytes);
+    }
+    else {
+      unsigned char *data = mymalloc(3 * im->xsize);
+      if (data != NULL) {
+        int y = 0;
+        int x, ch;
+        
+        unsigned char *p;
+        rc = 0;
+        while (y < im->ysize && rc >= 0) {
+          i_gsamp(im, 0, im->xsize, y, data, 0x7);
+          rc = mywrite(fd, data, im->xsize * 3);
+        }
+        myfree(data);
+      }
+      else {
+        i_push_error(0, "Out of memory");
+        return 0;
+      }
+    }
     if (rc<0) {
       i_push_error(errno, "could not write ppm data");
       mm_log((1,"i_writeppm: unable to write ppm data.\n"));
@@ -433,8 +454,29 @@ i_writeppm(i_img *im,int fd) {
       mm_log((1,"i_writeppm: unable to write pgm header.\n"));
       return(0);
     }
-    
-    rc=mywrite(fd,im->data,im->bytes);
+
+    if (!im->virtual && im->bits == i_8_bits && im->type == i_direct_type) {
+      rc=mywrite(fd,im->idata,im->bytes);
+    }
+    else {
+      unsigned char *data = mymalloc(im->xsize);
+      if (data != NULL) {
+        int y = 0;
+        int x, ch;
+        
+        unsigned char *p;
+        rc = 0;
+        while (y < im->ysize && rc >= 0) {
+          i_gsamp(im, 0, im->xsize, y, data, 0x1);
+          rc = mywrite(fd, data, im->xsize);
+        }
+        myfree(data);
+      }
+      else {
+        i_push_error(0, "Out of memory");
+        return 0;
+      }
+    }
     if (rc<0) {
       i_push_error(errno, "could not write pgm data");
       mm_log((1,"i_writeppm: unable to write pgm data.\n"));

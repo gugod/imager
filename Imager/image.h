@@ -59,14 +59,28 @@ int    i_img_getchannels(i_img *im);
 
 int i_ppix(i_img *im,int x,int y,i_color *val);
 int i_gpix(i_img *im,int x,int y,i_color *val);
+int i_ppixf(i_img *im,int x,int y,i_color *val);
+int i_gpixf(i_img *im,int x,int y,i_color *val);
 
+#define i_ppix(im, x, y, val) (((im)->i_f_ppix)((im), (x), (y), (val)))
+#define i_gpix(im, x, y, val) (((im)->i_f_gpix)((im), (x), (y), (val)))
+#define i_ppixf(im, x, y, val) (((im)->i_f_ppixf)((im), (x), (y), (val)))
+#define i_gpixf(im, x, y, val) (((im)->i_f_gpixf)((im), (x), (y), (val)))
+
+#if 0
 int i_ppix_d(i_img *im,int x,int y,i_color *val);
 int i_gpix_d(i_img *im,int x,int y,i_color *val);
 int i_plin_d(i_img *im,int l, int r, int y, i_color *val);
 int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
+#endif
 
 #define i_plin(im, l, r, y, val) (((im)->i_f_plin)(im, l, r, y, val))
 #define i_glin(im, l, r, y, val) (((im)->i_f_glin)(im, l, r, y, val))
+#define i_plinf(im, l, r, y, val) (((im)->i_f_plinf)(im, l, r, y, val))
+#define i_glinf(im, l, r, y, val) (((im)->i_f_glinf)(im, l, r, y, val))
+
+#define i_gsamp(im, l, r, y, samps, mask) (((im)->i_f_gsamp)(im, l, r, y, samps, mask))
+#define i_gsampf(im, l, r, y, samps, mask) (((im)->i_f_gsampf)(im, l, r, y, samps, mask))
 
 float i_gpix_pch(i_img *im,int x,int y,int ch);
 

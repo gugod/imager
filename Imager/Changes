@@ -419,6 +419,7 @@ Revision history for Perl extension Imager.
 
 0.39  pre1
 	- split Imager::Font into a base, *::Type1 and *::Truetype
+        - writing faxable tiff now allows 2 and 4 channel images
 
 =================================================================
 

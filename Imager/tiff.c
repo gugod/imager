@@ -367,7 +367,7 @@ i_writetiff_wiol_faxable(i_img *im, io_glue *ig, int fine) {
   int rc;
   uint32 x;
   TIFF* tif;
-  int luma_channel;
+  int luma_mask;
   uint32 rowsperstrip;
   float vres = fine ? 196 : 98;
 
@@ -376,10 +376,12 @@ i_writetiff_wiol_faxable(i_img *im, io_glue *ig, int fine) {
 
   switch (im->channels) {
   case 1:
-    luma_channel = 0;
+  case 2:
+    luma_mask = 1;
     break;
   case 3:
-    luma_channel = 1;
+  case 4:
+    luma_mask = 2;
     break;
   default:
     /* This means a colorspace we don't handle yet */
@@ -455,13 +457,13 @@ i_writetiff_wiol_faxable(i_img *im, io_glue *ig, int fine) {
     for(x=0; x<width; x+=8) { 
       int bits;
       int bitpos;
+      i_sample_t luma[8];
       uint8 bitval = 128;
       linebuf[linebufpos]=0;
       bits = width-x; if(bits>8) bits=8;
+      i_gsamp(im, x, x+8, y, luma, luma_mask);
       for(bitpos=0;bitpos<bits;bitpos++) {
-	int luma;
-	luma = im->data[(x+bitpos+y*im->xsize)*im->channels+luma_channel];
-	linebuf[linebufpos] |= ((luma>=128)?bitval:0);
+	linebuf[linebufpos] |= ((luma[bitpos]>=128)?bitval:0);
 	bitval >>= 1;
       }
       linebufpos++;
