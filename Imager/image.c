@@ -661,11 +661,11 @@ i_copy(i_img *im, i_img *src) {
     i_palidx *vals;
 
     /* paletted image */
-    i_img_pal_new(im, x1, y1, src->channels, i_maxcolors(src));
+    i_img_pal_new_low(im, x1, y1, src->channels, i_maxcolors(src));
     /* copy across the palette */
     count = i_colorcount(im);
-    for (i = 0; i < count; ++i) {
-      i_getcolor(src, i, &temp);
+    for (index = 0; index < count; ++index) {
+      i_getcolor(src, index, &temp);
       i_addcolor(im, &temp);
     }
 
