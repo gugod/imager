@@ -423,7 +423,9 @@ sub img_set {
   my %hsh=(xsize=>100, ysize=>100, channels=>3, bits=>8, type=>'direct', @_);
 
   if (defined($self->{IMG})) {
-    i_img_destroy($self->{IMG});
+    # let IIM_DESTROY destroy it, it's possible this image is
+    # referenced from a virtual image (like masked)
+    #i_img_destroy($self->{IMG});
     undef($self->{IMG});
   }
 
@@ -575,7 +577,9 @@ sub read {
   my ($fh, $fd, $IO);
 
   if (defined($self->{IMG})) {
-    i_img_destroy($self->{IMG});
+    # let IIM_DESTROY do the destruction, since the image may be
+    # referenced from elsewhere
+    #i_img_destroy($self->{IMG});
     undef($self->{IMG});
   }
 

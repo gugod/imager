@@ -274,6 +274,7 @@ IIM_new(int x,int y,int ch) {
 void
 IIM_DESTROY(i_img *im) {
   mm_log((1,"IIM_DESTROY(im* %p)\n",im));
+  i_img_destroy(im);
   /*   myfree(cl); */
 }
 
