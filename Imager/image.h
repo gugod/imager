@@ -434,6 +434,8 @@ i_img *i_readgif(int fd, int **colour_table, int *colours);
 i_img *i_readgif_scalar(char *data, int length, int **colour_table, int *colours);
 i_img *i_readgif_callback(i_read_callback_t callback, char *userdata, int **colour_table, int *colours);
 extern i_img **i_readgif_multi(int fd, int *count);
+extern i_img **i_readgif_multi_scalar(char *data, int length, int *count);
+extern i_img **i_readgif_multi_callback(i_read_callback_t callback, char *userdata, int *count);
 undef_int i_writegif(i_img *im,int fd,int colors,int pixdev,int fixedlen,i_color fixed[]);
 undef_int i_writegifmc(i_img *im,int fd,int colors);
 undef_int i_writegifex(i_img *im,int fd);

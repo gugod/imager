@@ -382,10 +382,11 @@ EOS
     print "ok 32\n";
     my @tags = map {[ Imager::i_tags_get($imgs[1], $_) ]} 0..Imager::i_tags_count($imgs[1])-1;
     my ($left) = grep $_->[0] eq 'gif_left', @tags;
-    $left && $left->[3] == 3 or print "not ";
+    $left && $left->[1] == 3 or print "not ";
     print "ok 33\n";
-    open FH, "< testout/t105_mult_pall.gif"
-      or die "Cannot open testout/t105_mult_pall.gif: $!";
+    # screen3.gif was saved with 
+    open FH, "< testimg/screen3.gif"
+      or die "Cannot open testimg/screen3.gif: $!";
     binmode FH;
     @imgs = Imager::i_readgif_multi(fileno(FH))
       or print "not ";

@@ -1535,6 +1535,47 @@ i_readgif_multi(fd)
           myfree(imgs);
         }
 
+void
+i_readgif_multi_scalar(data)
+      PREINIT:
+        i_img **imgs;
+        int count;
+        char *data;
+        unsigned int length;
+        int i;
+      PPCODE:
+        data = (char *)SvPV(ST(0), length);
+        imgs = i_readgif_multi_scalar(data, length, &count);
+        if (imgs) {
+          EXTEND(SP, count);
+          for (i = 0; i < count; ++i) {
+            SV *sv = sv_newmortal();
+            sv_setref_pv(sv, "Imager::ImgRaw", (void *)imgs[i]);
+            PUSHs(sv);
+          }
+          myfree(imgs);
+        }
+
+void
+i_readgif_multi_callback(cb)
+      PREINIT:
+        i_reader_data rd;
+        i_img **imgs;
+        int count;
+        int i;
+      PPCODE:
+        rd.sv = ST(0);
+        imgs = i_readgif_multi_callback(read_callback, (char *)&rd, &count);
+        if (imgs) {
+          EXTEND(SP, count);
+          for (i = 0; i < count; ++i) {
+            SV *sv = sv_newmortal();
+            sv_setref_pv(sv, "Imager::ImgRaw", (void *)imgs[i]);
+            PUSHs(sv);
+          }
+          myfree(imgs);
+        }
+
 #endif
 
 
@@ -2614,16 +2655,14 @@ i_tags_get(im, index)
             PUSHs(sv_2mortal(newSVpv(entry->name, 0)));
           }
           else {
-            PUSHs(&PL_sv_undef);
+            PUSHs(sv_2mortal(newSViv(entry->code)));
           }
-          PUSHs(sv_2mortal(newSViv(entry->code)));
           if (entry->data) {
             PUSHs(sv_2mortal(newSVpvn(entry->data, entry->size)));
           }
           else {
-            PUSHs(&PL_sv_undef);
+            PUSHs(sv_2mortal(newSViv(entry->idata)));
           }
-          PUSHs(sv_2mortal(newSViv(entry->idata)));
         }
 
 int

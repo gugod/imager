@@ -423,6 +423,9 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
   int gif_delay; /* delay from a GCE */
   int user_input; /* user input flag from a GCE */
   int disposal; /* disposal method from a GCE */
+  int got_ns_loop = 0;
+  int ns_loop;
+  char *comment = NULL; /* a comment */
   i_img **results = NULL;
   int result_alloc = 0;
   int channels;
@@ -526,6 +529,14 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
       i_tags_addn(&img->tags, "gif_left", 0, GifFile->Image.Left);
       /**(char *)0 = 1;*/
       i_tags_addn(&img->tags, "gif_top",  0, GifFile->Image.Top);
+      i_tags_addn(&img->tags, "gif_interlace", 0, GifFile->Image.Interlace);
+      i_tags_addn(&img->tags, "gif_screen_width", 0, GifFile->SWidth);
+      i_tags_addn(&img->tags, "gif_screen_height", 0, GifFile->SHeight);
+      if (GifFile->SColorMap && !GifFile->Image.ColorMap) {
+        i_tags_addn(&img->tags, "gif_background", 0, 
+                    GifFile->SBackGroundColor);
+      }
+      
       if (got_gce) {
         if (trans_index >= 0)
           i_tags_addn(&img->tags, "gif_trans_index", 0, trans_index);
@@ -534,6 +545,14 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
         i_tags_addn(&img->tags, "gif_disposal", 0, disposal);
       }
       got_gce = 0;
+      if (got_ns_loop)
+        i_tags_addn(&img->tags, "gif_loop", 0, ns_loop);
+      if (comment) {
+        i_tags_add(&img->tags, "gif_comment", 0, comment, strlen(comment), 0);
+        myfree(comment);
+        comment = NULL;
+      }
+
       ImageNum++;
       mm_log((1,"i_readgif_multi: Image %d at (%d, %d) [%dx%d]: \n",ImageNum, Col, Row, Width, Height));
 
@@ -594,6 +613,34 @@ i_img **i_readgif_multi_low(GifFileType *GifFile, int *count) {
         user_input = (Extension[0] & 2) != 0;
         disposal = (Extension[0] >> 2) & 3;
       }
+      if (ExtCode == 0xFF && *Extension == 11) {
+        if (memcmp(Extension+1, "NETSCAPE2.0", 11) == 0) {
+          if (DGifGetExtensionNext(GifFile, &Extension) == GIF_ERROR) {
+            gif_push_error();
+            i_push_error(0, "reading loop extension");
+            free_images(results, *count);
+            DGifCloseFile(GifFile);
+            return NULL;
+          }
+          if (Extension && *Extension == 3) {
+            got_ns_loop = 1;
+            ns_loop = Extension[2] + 256 * Extension[3];
+          }
+        }
+      }
+      else if (ExtCode == 0xFE) {
+        /* while it's possible for a GIF file to contain more than one
+           comment, I'm only implementing a single comment per image, 
+           with the comment saved into the following image.
+           If someone wants more than that they can implement it.
+           I also don't handle comments that take more than one block.
+        */
+        if (!comment) {
+          comment = mymalloc(*Extension+1);
+          memcpy(comment, Extension+1, *Extension);
+          comment[*Extension] = '\0';
+        }
+      }
       while (Extension != NULL) {
 	if (DGifGetExtensionNext(GifFile, &Extension) == GIF_ERROR) {
 	  gif_push_error();
@@ -644,6 +691,78 @@ i_readgif_multi(int fd, int *count) {
   }
 
   return i_readgif_multi_low(GifFile, count);
+}
+
+/*
+=item i_readgif_multi_scalar(char *data, int length, int *count)
+
+=cut
+*/
+i_img **
+i_readgif_multi_scalar(char *data, int length, int *count) {
+#if IM_GIFMAJOR >= 4
+  GifFileType *GifFile;
+  struct gif_scalar_info gsi;
+
+  i_clear_error();
+  
+  gsi.cpos=0;
+  gsi.length=length;
+  gsi.data=data;
+
+  mm_log((1,"i_readgif_multi_scalar(data %p, length %d, &count %p)\n", 
+          data, length, count));
+
+  if ((GifFile = DGifOpen( (void*) &gsi, my_gif_inputfunc )) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create giflib callback object");
+    mm_log((1,"i_readgif_multi_scalar: Unable to open scalar datasource.\n"));
+    return NULL;
+  }
+
+  return i_readgif_multi_low(GifFile, count);
+#else
+  return NULL;
+#endif
+}
+
+/*
+=item i_readgif_callback(i_read_callback_t cb, char *userdata, int **colour_table, int *colours)
+
+Read a GIF file into an Imager RGB file, the data of the GIF file is
+retreived by callin the user supplied callback function.
+
+This function is only used with giflib 4 and higher.
+
+=cut
+*/
+
+i_img**
+i_readgif_multi_callback(i_read_callback_t cb, char *userdata, int *count) {
+#if IM_GIFMAJOR >= 4
+  GifFileType *GifFile;
+  i_img **result;
+
+  i_gen_read_data *gci = i_gen_read_data_new(cb, userdata);
+
+  i_clear_error();
+  
+  mm_log((1,"i_readgif_multi_callback(callback %p, userdata %p, count %p)\n", cb, userdata, count));
+  if ((GifFile = DGifOpen( (void*) gci, gif_read_callback )) == NULL) {
+    gif_push_error();
+    i_push_error(0, "Cannot create giflib callback object");
+    mm_log((1,"i_readgif_callback: Unable to open callback datasource.\n"));
+    myfree(gci);
+    return NULL;
+  }
+
+  result = i_readgif_multi_low(GifFile, count);
+  free_gen_read_data(gci);
+
+  return result;
+#else
+  return NULL;
+#endif
 }
 
 /*

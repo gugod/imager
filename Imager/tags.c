@@ -118,11 +118,14 @@ int i_tags_add(i_img_tags *tags, char *name, int code, char *data, int size,
     strcpy(work.name, name);
   }
   if (data) {
-    work.data = malloc(size);
+    work.data = malloc(size+1);
     if (!work.data) {
       if (work.name) free(work.name);
       return 0;
     }
+    memcpy(work.data, data, size);
+    work.data[size] = '\0'; /* convenience */
+    work.size = size;
   }
   work.code = code;
   work.idata = idata;
