@@ -1,4 +1,4 @@
-BEGIN { $| = 1; print "1..39\n"; }
+BEGIN { $| = 1; print "1..40\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager;
 
@@ -64,6 +64,14 @@ print "ok 38\n";
 $timg = $img->rotate(right=>90)->rotate(right=>180)->rotate(right=>90);
 Imager::i_img_diff($img->{IMG}, $timg->{IMG}) and print "not ";
 print "ok 39\n";
+
+# this could use more tests
+my $rimg = $img->rotate(degrees=>10)
+  or print "not ";
+print "ok 40\n";
+if (!$rimg->write(file=>"testout/t64_rot45.ppm")) {
+  print "# Cannot save: ",$rimg->errstr,"\n";
+}
 
 sub rot_test {
   my ($testnum, $src, $degrees, $count) = @_;

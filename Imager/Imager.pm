@@ -1396,6 +1396,18 @@ sub rotate {
       return undef;
     }
   }
+  elsif (defined $opts{radians} || defined $opts{degrees}) {
+    my $amount = $opts{radians} || $opts{degrees} * 3.1415926535 / 180;
+
+    my $result = Imager->new;
+    if ($result->{IMG} = i_rotate_exact($self->{IMG}, $amount)) {
+      return $result;
+    }
+    else {
+      $self->{ERRSTR} = $self->_error_as_msg();
+      return undef;
+    }
+  }
   else {
     $self->{ERRSTR} = "Only the 'right' parameter is available";
     return undef;
@@ -2649,13 +2661,19 @@ parameter which can take the values C<h>, C<v>, C<vh> and C<hv>.
 
 =head2 Rotating images
 
-Use the rotate() method to rotate an image, currently only in steps of
-90 degrees:
+Use the rotate() method to rotate an image.
+
+To rotate by an exact amount in degrees or radians, use the 'degrees'
+or 'radians' parameter:
+
+  my $rot20 = $img->rotate(degrees=>20);
+  my $rotpi4 = $img->rotate(radians=>3.14159265/4);
+
+To rotate in steps of 90 degrees, use the 'right' parameter:
 
   my $rotated = $img->rotate(right=>270);
 
-Other paremeters will be added in the future to support rotation
-through shearing and through interpolation.
+Rotations are clockwise for positive values.
 
 =head2 Blending Images
 

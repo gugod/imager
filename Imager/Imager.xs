@@ -801,6 +801,37 @@ i_rotate90(im, degrees)
     Imager::ImgRaw      im
                int      degrees
 
+Imager::ImgRaw
+i_rotate_exact(im, amount)
+    Imager::ImgRaw      im
+            double      amount
+
+Imager::ImgRaw
+i_matrix_transform(im, xsize, ysize, matrix)
+    Imager::ImgRaw      im
+               int      xsize
+               int      ysize
+      PREINIT:
+        double matrix[9];
+        AV *av;
+        IV len;
+        SV *sv1;
+        int i;
+      CODE:
+        if (!SvROK(ST(3)) || SvTYPE(SvRV(ST(1))) != SVt_PVAV)
+          croak("i_matrix_transform: parameter 4 must be an array ref\n");
+	av=(AV*)SvRV(ST(1));
+	len=av_len(av)+1;
+        if (len > 9)
+          len = 9;
+        for (i = 0; i < len; ++i) {
+	  sv1=(*(av_fetch(av,i,0)));
+	  matrix[i] = SvNV(sv1);
+        }
+        for (; i < 9; ++i)
+          matrix[i] = 0;
+        RETVAL = i_matrix_transform(im, xsize, ysize, matrix);        
+
 void
 i_gaussian(im,stdev)
     Imager::ImgRaw     im

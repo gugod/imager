@@ -133,7 +133,8 @@ int i_rubthru     (i_img *im,i_img *src,int tx,int ty);
 
 undef_int i_flipxy (i_img *im, int direction);
 extern i_img *i_rotate90(i_img *im, int degrees);
-
+extern i_img *i_rotate_exact(i_img *im, double amount);
+extern i_img *i_matrix_transform(i_img *im, int xsize, int ysize, double *matrix);
 
 void i_bezier_multi(i_img *im,int l,double *x,double *y,i_color *val);
 void i_poly_aa     (i_img *im,int l,double *x,double *y,i_color *val);

@@ -445,6 +445,11 @@ Revision history for Perl extension Imager.
 	- fixed the right-hand side of bounding boxes for TT fonts 
 	  where the last character overlaps the advance width (eg. 
 	  italic fonts)
+        - added rotation by exact amounts in degrees or radians,
+          implemented using the matrix idea from Addi.  The procedural
+          matrix transformer is exposed, but still needs testing (as XS)
+          and needs an OO interface, hopefully with some helper tools,
+          like the preset interface with ->convert().
 
 =================================================================
 
