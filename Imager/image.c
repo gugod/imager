@@ -635,7 +635,6 @@ i_copy(i_img *im, i_img *src) {
   x1 = src->xsize;
   y1 = src->ysize;
   if (src->type == i_direct_type) {
-    printf("Copying direct\n");
     if (src->bits == i_8_bits) {
       i_color *pv;
       i_img_empty_ch(im, x1, y1, src->channels);
