@@ -420,14 +420,151 @@ sub crop {
 sub img_set {
   my $self=shift;
 
-  my %hsh=(xsize=>100,ysize=>100,channels=>3,@_);
+  my %hsh=(xsize=>100, ysize=>100, channels=>3, bits=>8, type=>'direct', @_);
 
   if (defined($self->{IMG})) {
     i_img_destroy($self->{IMG});
     undef($self->{IMG});
   }
 
-  $self->{IMG}=Imager::ImgRaw::new($hsh{'xsize'},$hsh{'ysize'},$hsh{'channels'});
+  if ($hsh{type} eq 'paletted' || $hsh{type} eq 'pseudo') {
+    $self->{IMG} = i_img_pal_new($hsh{xsize}, $hsh{ysize}, $hsh{channels},
+                                 $hsh{maxcolors} || 256);
+  }
+  elsif ($hsh{bits} == 16) {
+    $self->{IMG} = i_img_16_new($hsh{xsize}, $hsh{ysize}, $hsh{channels});
+  }
+  else {
+    $self->{IMG}=Imager::ImgRaw::new($hsh{'xsize'}, $hsh{'ysize'},
+                                     $hsh{'channels'});
+  }
+}
+
+# created a masked version of the current image
+sub masked {
+  my $self = shift;
+
+  $self or return undef;
+  my %opts = (left    => 0, 
+              top     => 0, 
+              right   => $self->getwidth, 
+              bottom  => $self->getheight,
+              @_);
+  my $mask = $opts{mask} ? $opts{mask}{IMG} : undef;
+
+  my $result = Imager->new;
+  $result->{IMG} = i_img_masked_new($self->{IMG}, $mask, $opts{left}, 
+                                    $opts{top}, $opts{right} - $opts{left},
+                                    $opts{bottom} - $opts{top});
+  # keep references to the mask and base images so they don't
+  # disappear on us
+  $result->{DEPENDS} = [ $self->{IMG}, $mask ];
+
+  $result;
+}
+
+# convert an RGB image into a paletted image
+sub to_paletted {
+  my $self = shift;
+  my $opts;
+  if (@_ != 1 && !ref $_[0]) {
+    $opts = { @_ };
+  }
+  else {
+    $opts = shift;
+  }
+
+  my $result = Imager->new;
+  $result->{IMG} = i_img_to_pal($self->{IMG}, $opts);
+
+  #print "Type ", i_img_type($result->{IMG}), "\n";
+
+  $result->{IMG} or undef $result;
+
+  return $result;
+}
+
+# convert a paletted (or any image) to an 8-bit/channel RGB images
+sub to_rgb8 {
+  my $self = shift;
+  my $result;
+
+  if ($self->{IMG}) {
+    $result = Imager->new;
+    $result->{IMG} = i_img_to_rgb($self->{IMG})
+      or undef $result;
+  }
+
+  return $result;
+}
+
+sub addcolors {
+  my $self = shift;
+  my %opts = (colors=>[], @_);
+
+  @{$opts{colors}} or return undef;
+
+  $self->{IMG} and i_addcolors($self->{IMG}, @{$opts{colors}});
+}
+
+sub setcolors {
+  my $self = shift;
+  my %opts = (start=>0, colors=>[], @_);
+  @{$opts{colors}} or return undef;
+
+  $self->{IMG} and i_setcolors($self->{IMG}, $opts{start}, @{$opts{colors}});
+}
+
+sub getcolors {
+  my $self = shift;
+  my %opts = @_;
+  if (!exists $opts{start} && !exists $opts{count}) {
+    # get them all
+    $opts{start} = 0;
+    $opts{count} = $self->colorcount;
+  }
+  elsif (!exists $opts{count}) {
+    $opts{count} = 1;
+  }
+  elsif (!exists $opts{start}) {
+    $opts{start} = 0;
+  }
+  
+  $self->{IMG} and 
+    return i_getcolors($self->{IMG}, $opts{start}, $opts{count});
+}
+
+sub colorcount {
+  i_colorcount($_[0]{IMG});
+}
+
+sub maxcolors {
+  i_maxcolors($_[0]{IMG});
+}
+
+sub findcolor {
+  my $self = shift;
+  my %opts = @_;
+  $opts{color} or return undef;
+
+  $self->{IMG} and i_findcolor($self->{IMG}, $opts{color});
+}
+
+sub bits {
+  my $self = shift;
+  $self->{IMG} and i_img_bits($self->{IMG});
+}
+
+sub type {
+  my $self = shift;
+  if ($self->{IMG}) {
+    return i_img_type($self->{IMG}) ? "paletted" : "direct";
+  }
+}
+
+sub virtual {
+  my $self = shift;
+  $self->{IMG} and i_img_virtual($self->{IMG});
 }
 
 # Read an image from file
@@ -1588,6 +1725,36 @@ If you have an existing image, use img_set() to change it's dimensions
 
   $img->img_set(xsize=>500, ysize=>500, channels=>4);
 
+To create paletted images, set the 'type' parameter to 'paletted':
+
+  $img = Imager->new(xsize=>200, ysize=>200, channels=>3, type=>'paletted');
+
+which creates an image with a maxiumum of 256 colors, which you can
+change by supplying the C<maxcolors> parameter.
+
+You can create a new paletted image from an existing image using the
+to_paletted() method:
+
+ $palimg = $img->to_paletted(\%opts)
+
+where %opts contains the options specified under L<Quantization options>.
+
+You can convert a paletted image (or any image) to an 8-bit/channel
+RGB image with:
+
+  $rgbimg = $img->to_rgb8;
+
+Warning: if you draw on a paletted image with colors that aren't in
+the palette, the image will be internally converted to a normal image.
+
+For improved color precision you can use the bits parameter to specify
+16 bites per channel:
+
+  $img = Imager->new(xsize=>200, ysize=>200, channels=>3, bits=>16);
+
+Note that as of this writing all functions should work on 16-bit
+images, but at only 8-bit/channel precision.
+
 Color objects are created by calling the Imager::Color->new()
 method:
 
@@ -2080,6 +2247,54 @@ the function return undef.  Examples:
   if (!defined($img->getcolorcount(maxcolors=>512)) {
     print "Less than 512 colors in image\n";
   }
+
+The bits() method retrieves the number of bits used to represent each
+channel in a pixel, typically 8.  The type() method returns either
+'direct' for truecolor images or 'paletted' for paletted images.  The
+virtual() method returns non-zero if the image contains no actual
+pixels, for example masked images.
+
+=head2 Paletted Images
+
+In general you can work with paletted images in the same way as RGB
+images, except that if you attempt to draw to a paletted image with a
+color that is not in the image's palette, the image will be converted
+to an RGB image.  This means that drawing on a paletted image with
+anti-aliasing enabled will almost certainly convert the image to RGB.
+
+You can add colors to a paletted image with the addcolors() method:
+
+   my @colors = ( Imager::Color->new(255, 0, 0), 
+                  Imager::Color->new(0, 255, 0) );
+   my $index = $img->addcolors(colors=>\@colors);
+
+The return value is the index of the first color added, or undef if
+adding the colors would overflow the palette.
+
+Once you have colors in the palette you can overwrite them with the
+setcolors() method:
+
+  $img->setcolors(start=>$start, colors=>\@colors);
+
+Returns true on success.
+
+To retrieve existing colors from the palette use the getcolors() method:
+
+  # get the whole palette
+  my @colors = $img->getcolors();
+  # get a single color
+  my $color = $img->getcolors(start=>$index);
+  # get a range of colors
+  my @colors = $img->getcolors(start=>$index, count=>$count);
+
+To quickly find a color in the palette use findcolor():
+
+  my $index = $img->findcolor(color=>$color);
+
+which returns undef on failure, or the index of the color.
+
+You can get the current palette size with $img->colorcount, and the
+maximum size of the palette with $img->maxcolors.
 
 =head2 Drawing Methods
 
@@ -2620,6 +2835,25 @@ A spiral built on top of a colour wheel.
 For details on expression parsing see L<Imager::Expr>.  For details on
 the virtual machine used to transform the images, see
 L<Imager::regmach.pod>.
+
+=head2 Masked Images
+
+Masked images let you control which pixels are modified in an
+underlying image.  Where the first channel is completely black in the
+mask image, writes to the underlying image are ignored.
+
+For example, given a base image called $img:
+
+  my $mask = Imager->new(xsize=>$img->getwidth, ysize=>getheight,
+                         channels=>1);
+  # ... draw something on the mask
+  my $maskedimg = $img->masked(mask=>$mask);
+
+You can specifiy the region of the underlying image that is masked
+using the left, top, right and bottom options.
+
+If you just want a subset of the image, without masking, just specify
+the region without specifying a mask.
 
 =head2 Plugins
 

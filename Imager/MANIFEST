@@ -39,6 +39,7 @@ regmach.c
 regmach.h
 stackmach.c
 stackmach.h
+tags.c
 trans2.c
 iolayer.h
 iolayer.c
@@ -51,7 +52,10 @@ lib/Imager/Regops.pm
 lib/Imager/Expr.pm
 lib/Imager/Expr/Assem.pm
 lib/Imager/Color.pm
+lib/Imager/Color/Float.pm
 lib/Imager/Font.pm
+lib/Imager/Font/Type1.pm
+lib/Imager/Font/Truetype.pm
 lib/Imager/Transform.pm
 t/t00basic.t
 t/t01introvert.t

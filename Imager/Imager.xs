@@ -2038,6 +2038,8 @@ i_img_to_pal(src, quant)
           copy_colors_back(hv, &quant);
         }
         myfree(quant.mc_colors);
+      OUTPUT:
+        RETVAL
 
 Imager::ImgRaw
 i_img_to_rgb(src)
@@ -2143,7 +2145,7 @@ i_setcolors(im, index, ...)
         if (items < 3)
           croak("i_setcolors: no colors to add");
         colors = mymalloc((items-2) * sizeof(i_color));
-        for (i=0; i < items-1; ++i) {
+        for (i=0; i < items-2; ++i) {
           if (sv_isobject(ST(i+2)) 
               && sv_derived_from(ST(i+2), "Imager::Color")) {
             IV tmp = SvIV((SV *)SvRV(ST(i+2)));
@@ -2151,7 +2153,7 @@ i_setcolors(im, index, ...)
           }
           else {
             myfree(colors);
-            croak("i_plin: pixels must be Imager::Color objects");
+            croak("i_setcolors: pixels must be Imager::Color objects");
           }
         }
         RETVAL = i_setcolors(im, index, colors, items-2);
@@ -2193,6 +2195,20 @@ i_colorcount(im)
         int count;
       CODE:
         count = i_colorcount(im);
+        if (count >= 0) {
+          ST(0) = sv_2mortal(newSViv(count));
+        }
+        else {
+          ST(0) = &PL_sv_undef;
+        }
+
+SV *
+i_maxcolors(im)
+        Imager::ImgRaw im
+      PREINIT:
+        int count;
+      CODE:
+        count = i_maxcolors(im);
         if (count >= 0) {
           ST(0) = sv_2mortal(newSViv(count));
         }

@@ -245,7 +245,7 @@ found.
 
 Sets count colors starting from index in the image from the array
 colors.  The colors to be set must already have entries in the image's
-palette.
+palette.  Returns non-zero on success.
 
 =back
 
