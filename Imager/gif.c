@@ -1167,6 +1167,34 @@ static int do_gce(GifFileType *gf, i_img *img, int want_trans, int trans_index)
 }
 
 /*
+=item do_comments(gf, img)
+
+Write any comments in the image.
+
+=cut
+*/
+static int do_comments(GifFileType *gf, i_img *img) {
+  int pos = -1;
+
+  while (i_tags_find(&img->tags, "gif_comment", pos+1, &pos)) {
+    if (img->tags.tags[pos].data) {
+      if (EGifPutComment(gf, img->tags.tags[pos].data) == GIF_ERROR) {
+        return 0;
+      }
+    }
+    else {
+      char buf[50];
+      sprintf(buf, "%d", img->tags.tags[pos].idata);
+      if (EGifPutComment(gf, buf) == GIF_ERROR) {
+        return 0;
+      }
+    }
+  }
+
+  return 1;
+}
+
+/*
 =item do_ns_loop(GifFileType *gf, i_gif_opts *opts)
 
 Internal.  Add the Netscape2.0 loop extension block, if requested.
@@ -1457,12 +1485,13 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
   int colors_paletted;
   int want_trans;
   int interlace;
+  int gif_background;
 
   mm_log((1, "i_writegif_low(quant %p, gf  %p, imgs %p, count %d)\n", 
 	  quant, gf, imgs, count));
-
+  
   /* *((char *)0) = 1; */ /* used to break into the debugger */
-
+  
   if (count <= 0) {
     i_push_error(0, "No images provided to write");
     return 0; /* what are you smoking? */
@@ -1475,6 +1504,11 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
     quant->mc_size = 256;
   if (quant->mc_count > quant->mc_size)
     quant->mc_count = quant->mc_size;
+
+  if (!i_tags_get_int(&imgs[0]->tags, "gif_screen_width", 0, &scrw))
+    scrw = 0;
+  if (!i_tags_get_int(&imgs[0]->tags, "gif_screen_height", 0, &scrw))
+    scrw = 0;
 
   anylocal = 0;
   localmaps = i_mempool_alloc(&mp, sizeof(int) * count);
@@ -1506,6 +1540,10 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
   orig_size = quant->mc_size;
 
   if (glob_img_count) {
+    /* this is ugly */
+    glob_colors = i_mempool_alloc(&mp, sizeof(i_color) * quant->mc_size);
+    quant->mc_colors = glob_colors;
+    memcpy(glob_colors, orig_colors, sizeof(i_color) * quant->mc_count);
     /* we have some images that want to use the global map */
     if (glob_want_trans && quant->mc_count == 256) {
       mm_log((2, "  disabling transparency for global map - no space\n"));
@@ -1515,10 +1553,6 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
       mm_log((2, "  reserving color for transparency\n"));
       --quant->mc_size;
     }
-    /* this is ugly */
-    glob_colors = i_mempool_alloc(&mp, sizeof(i_color) * quant->mc_size);
-    quant->mc_colors = glob_colors;
-    memcpy(glob_colors, orig_colors, sizeof(i_color) * quant->mc_count);
     if (has_common_palette(glob_imgs, glob_img_count, quant, want_trans)) {
       glob_paletted = 1;
     }
@@ -1531,10 +1565,18 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
   }
 
   /* use the global map if we have one, otherwise use the local map */
+  gif_background = 0;
   if (glob_colors) {
     quant->mc_colors = glob_colors;
     quant->mc_count = glob_color_count;
     want_trans = glob_want_trans && imgs[0]->channels == 4;
+
+    if (!i_tags_get_int(&imgs[0]->tags, "gif_background", 0, &gif_background))
+      gif_background = 0;
+    if (gif_background < 0)
+      gif_background = 0;
+    if (gif_background >= glob_color_count)
+      gif_background = 0;
   }
   else {
     want_trans = quant->transp != tr_none && imgs[0]->channels == 4;
@@ -1561,11 +1603,15 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
       ++color_bits;
   }
   else {
-    while (quant->mc_count > (1 << color_bits))
+    int count = quant->mc_count;
+    if (want_trans)
+      ++count;
+    while (count > (1 << color_bits))
       ++color_bits;
   }
   
-  if (EGifPutScreenDesc(gf, scrw, scrh, color_bits, 0, map) == GIF_ERROR) {
+  if (EGifPutScreenDesc(gf, scrw, scrh, color_bits, 
+                        gif_background, map) == GIF_ERROR) {
     i_mempool_destroy(&mp);
     quant->mc_colors = orig_colors;
     gif_push_error();
@@ -1577,20 +1623,6 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
     return 0;
   }
   FreeMapObject(map);
-
-  if (!do_ns_loop(gf, imgs[0])) {
-    i_mempool_destroy(&mp);
-    quant->mc_colors = orig_colors;
-    return 0;
-  }
-
-  if (!do_gce(gf, imgs[0], want_trans, trans_index)) {
-    i_mempool_destroy(&mp);
-    quant->mc_colors = orig_colors;
-    myfree(result);
-    EGifCloseFile(gf);
-    return 0;
-  }
 
   if (!i_tags_get_int(&imgs[0]->tags, "gif_left", 0, &posx))
     posx = 0;
@@ -1639,6 +1671,37 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
     }
   }
 
+  if (colors_paletted)
+    result = quant_paletted(quant, imgs[0]);
+  else
+    result = quant_translate(quant, imgs[0]);
+  if (want_trans) {
+    quant_transparent(quant, result, imgs[0], quant->mc_count);
+    trans_index = quant->mc_count;
+  }
+
+  if (!do_ns_loop(gf, imgs[0])) {
+    i_mempool_destroy(&mp);
+    quant->mc_colors = orig_colors;
+    return 0;
+  }
+
+  if (!do_gce(gf, imgs[0], want_trans, trans_index)) {
+    i_mempool_destroy(&mp);
+    quant->mc_colors = orig_colors;
+    myfree(result);
+    EGifCloseFile(gf);
+    return 0;
+  }
+
+  if (!do_comments(gf, imgs[0])) {
+    i_mempool_destroy(&mp);
+    quant->mc_colors = orig_colors;
+    myfree(result);
+    EGifCloseFile(gf);
+    return 0;
+  }
+
   if (!i_tags_get_int(&imgs[0]->tags, "gif_interlace", 0, &interlace))
     interlace = 0;
   if (EGifPutImageDesc(gf, posx, posy, imgs[0]->xsize, imgs[0]->ysize, 
@@ -1653,11 +1716,6 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
   }
   if (map)
     FreeMapObject(map);
-
-  if (colors_paletted)
-    result = quant_paletted(quant, imgs[0]);
-  else
-    result = quant_translate(quant, imgs[0]);
 
   if (!do_write(gf, interlace, imgs[0], result)) {
     i_mempool_destroy(&mp);
@@ -1676,7 +1734,7 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
       quant->mc_size = orig_size;
 
       want_trans = quant->transp != tr_none 
-	&& imgs[0]->channels == 4;
+	&& imgs[imgn]->channels == 4;
       /* if the caller gives us too many colours we can't do transparency */
       if (want_trans && quant->mc_count == 256)
 	want_trans = 0;
@@ -1713,6 +1771,11 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
         result = quant_paletted(quant, imgs[imgn]);
       else
         result = quant_translate(quant, imgs[imgn]);
+      want_trans = glob_want_trans && imgs[imgn]->channels == 4;
+      if (want_trans) {
+        quant_transparent(quant, result, imgs[imgn], quant->mc_count);
+        trans_index = quant->mc_count;
+      }
       map = NULL;
     }
 
@@ -1724,6 +1787,18 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
       return 0;
     }
 
+    if (!do_comments(gf, imgs[imgn])) {
+      i_mempool_destroy(&mp);
+      quant->mc_colors = orig_colors;
+      myfree(result);
+      EGifCloseFile(gf);
+      return 0;
+    }
+
+    if (!i_tags_get_int(&imgs[imgn]->tags, "gif_left", 0, &posx))
+      posx = 0;
+    if (!i_tags_get_int(&imgs[imgn]->tags, "gif_top", 0, &posy))
+      posy = 0;
 
     if (!i_tags_get_int(&imgs[imgn]->tags, "gif_interlace", 0, &interlace))
       interlace = 0;

@@ -145,6 +145,7 @@ if (!i_has_format("gif")) {
     my $sortagreen = i_color_new(0, 255, 0, 63);
     for my $i (0..4) {
       my $im = Imager::ImgRaw::new(200, 200, 4);
+      _add_tags($im, gif_delay=>50, gif_disposal=>2);
       for my $j (0..$i-1) {
 	my $fill = i_color_new(0, 128, 0, 255 * ($i-$j)/$i);
 	i_box_filled($im, 0, $j*40, 199, $j*40+40, $fill);

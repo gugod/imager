@@ -226,7 +226,7 @@ integers, where 0 means unspecified, 1 means the image should be left
 in place, 2 means restore to background colour and 3 means restore to
 the previous value.
 
-=item gif_tran_color
+=item gif_trans_color
 
 A reference to an Imager::Color object, which is the colour to use for
 the palette entry used to represent transparency in the palette.  You
@@ -288,24 +288,31 @@ non-zero if the image was interlaced ("Interlace Flag")
 
 =item gif_screen_height
 
-the size of the logical screen ("Logical Screen Width", 
-"Logical Screen Height")
+the size of the logical screen. When writing this is used as the
+minimum.  If any image being written would extend beyond this the
+screen size is extended.  ("Logical Screen Width", "Logical Screen
+Height").
 
 =item gif_local_map
 
-Non-zero if this image had a local color map.
+Non-zero if this image had a local color map.  If set for an image
+when writing the image is quantized separately from the other images
+in the file.
 
 =item gif_background
 
 The index in the global colormap of the logical screen's background
 color.  This is only set if the current image uses the global
-colormap.
+colormap.  You can set this on write too, but for it to choose the
+color you want, you will need to supply only paletted images and set
+the C<gif_eliminate_unused> tag to 0.
 
 =item gif_trans_index
 
 The index of the color in the colormap used for transparency.  If the
 image has a transparency then it is returned as a 4 channel image with
-the alpha set to zero in this palette entry. ("Transparent Color Index")
+the alpha set to zero in this palette entry.  This value is not used
+when writing. ("Transparent Color Index")
 
 =item gif_delay
 
