@@ -49,6 +49,8 @@ void   i_img_destroy(i_img *im);
 
 void   i_img_info(i_img *im,int *info);
 
+i_img *i_img_pal_new(int x, int y, int ch, int maxpal);
+
 /* Image feature settings */
 
 void   i_img_setmask    (i_img *im,int ch_mask);
@@ -79,8 +81,26 @@ int i_glin_d(i_img *im,int l, int r, int y, i_color *val);
 #define i_plinf(im, l, r, y, val) (((im)->i_f_plinf)(im, l, r, y, val))
 #define i_glinf(im, l, r, y, val) (((im)->i_f_glinf)(im, l, r, y, val))
 
-#define i_gsamp(im, l, r, y, samps, mask) (((im)->i_f_gsamp)(im, l, r, y, samps, mask))
-#define i_gsampf(im, l, r, y, samps, mask) (((im)->i_f_gsampf)(im, l, r, y, samps, mask))
+#define i_gsamp(im, l, r, y, samps, chans, count) \
+  (((im)->i_f_gsamp)((im), (l), (r), (y), (samps), (chans), (count)))
+#define i_gsampf(im, l, r, y, samps, chans, count) \
+  (((im)->i_f_gsampf)((im), (l), (r), (y), (samps), (chans), (count)))
+
+#define i_findcolor(im, color, entry) \
+  (((im)->i_f_findcolor) ? ((im)->i_f_findcolor)((im), (color), (entry)) : 0)
+
+#define i_gpal(im, l, r, y, vals) \
+  (((im)->i_f_gpal) ? ((im)->i_f_gpal)((im), (l), (r), (y), (vals)) : 0)
+#define i_ppal(im, l, r, y, vals) \
+  (((im)->i_f_ppal) ? ((im)->i_f_ppal)((im), (l), (r), (y), (vals)) : 0)
+#define i_addcolor(im, color) \
+  (((im)->i_f_addcolor) ? ((im)->i_f_addcolor)((im), (color)) : 0)
+#define i_getcolor(im, index, color) \
+  (((im)->i_f_getcolor) ? ((im)->i_f_getcolor)((im), (index), (color)) : 0)
+#define i_colorcount(im) \
+  (((im)->i_f_colorcount) ? ((im)->i_f_colorcount)(im) : 0)
+#define i_findcolor(im, color, entry) \
+  (((im)->i_f_findcolor) ? ((im)->i_f_findcolor)((im), (color), (entry)) : 0)
 
 float i_gpix_pch(i_img *im,int x,int y,int ch);
 
@@ -364,6 +384,9 @@ extern void quant_makemap(i_quantize *quant, i_img **imgs, int count);
 extern i_palidx *quant_translate(i_quantize *quant, i_img *img);
 extern void quant_transparent(i_quantize *quant, i_palidx *indices, i_img *img, i_palidx trans_index);
 
+extern i_img *i_img_pal_new(int x, int y, int channels, int maxpal);
+extern i_img *i_img_to_pal(i_img *src, i_quantize *quant);
+
 #ifdef HAVE_LIBJPEG
 i_img* i_readjpeg(int fd,char** iptc_itext,int *tlength);
 i_img* i_readjpeg_scalar(char *data, int length,char** iptc_itext,int *itlength);
@@ -491,5 +514,16 @@ extern void i_push_errorvf(int code, char const *fmt, va_list);
 extern void i_clear_error();
 extern int i_failed(int code, char const *msg);
 
+/* image tag processing */
+extern void i_tags_new(i_img_tags *tags);
+extern int i_tags_addn(i_img_tags *tags, char *name, int code, int idata);
+extern int i_tags_add(i_img_tags *tags, char *name, int code, char *data, 
+                      int size, i_tag_type type, int idata);
+extern void i_tags_destroy(i_img_tags *tags);
+extern int i_tags_find(i_img_tags *tags, char *name, int start, int *entry);
+extern int i_tags_findn(i_img_tags *tags, int code, int start, int *entry);
+extern int i_tags_delete(i_img_tags *tags, int entry);
+extern int i_tags_delbyname(i_img_tags *tags, char *name);
+extern int i_tags_delbycode(i_img_tags *tags, int code);
 
 #endif

@@ -47,8 +47,8 @@ static int i_ppixf_d(i_img *im, int x, int y, i_fcolor *val);
 static int i_gpixf_d(i_img *im, int x, int y, i_fcolor *val);
 static int i_glinf_d(i_img *im, int l, int r, int y, i_fcolor *vals);
 static int i_plinf_d(i_img *im, int l, int r, int y, i_fcolor *vals);
-static int i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int chan_mask);
-static int i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, int chan_mask);
+static int i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int *chans, int chan_count);
+static int i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, int *chans, int chan_count);
 
 /* 
 =item ICL_new_internal(r, g, b, a)
@@ -317,6 +317,7 @@ i_img_empty_ch(i_img *im,int x,int y,int ch) {
       m_fatal(2,"malloc() error\n");
 
   memcpy(im, &IIM_base_8bit_direct, sizeof(i_img));
+  i_tags_new(&im->tags);
   im->xsize    = x;
   im->ysize    = y;
   im->channels = ch;
@@ -344,7 +345,7 @@ Free image data.
 void
 i_img_exorcise(i_img *im) {
   mm_log((1,"i_img_exorcise(im* 0x%x)\n",im));
-  i_tags_destroy(im);
+  i_tags_destroy(&im->tags);
   if (im->i_f_destroy)
     (im->i_f_destroy)(im);
   if (im->idata != NULL) { myfree(im->idata); }
@@ -1325,7 +1326,63 @@ i_plinf_d(i_img *im, int l, int r, int y, i_fcolor *vals) {
 }
 
 /*
-=item i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int chan_mask)
+=item i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int *chans, int chan_count)
+
+Reads sample values from im for the horizontal line (l, y) to (r-1,y)
+for the channels specified by chans, an array of int with chan_count
+elements.
+
+Returns the number of samples read (which should be (r-l) * bits_set(chan_mask)
+
+=cut
+*/
+int i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, 
+              int *chans, int chan_count) {
+  int ch, count, i, w;
+  unsigned char *data;
+
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    data = im->idata + (l+y*im->xsize) * im->channels;
+    w = r - l;
+    count = 0;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          i_push_errorf(0, "No channel %d in this image", chans[ch]);
+          return 0;
+        }
+      }
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+          *samps++ = data[chans[ch]];
+          ++count;
+        }
+        data += im->channels;
+      }
+    }
+    else {
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+          *samps++ = data[ch];
+          ++count;
+        }
+        data += im->channels;
+      }
+    }
+
+    return count;
+  }
+  else {
+    return 0;
+  }
+}
+
+/*
+=item i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, int *chans, int chan_count)
 
 Reads sample values from im for the horizontal line (l, y) to (r-1,y)
 for the channels specified by chan_mask, where bit 0 is the first
@@ -1335,22 +1392,46 @@ Returns the number of samples read (which should be (r-l) * bits_set(chan_mask)
 
 =cut
 */
-int i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int chan_mask) {
+int i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, 
+               int *chans, int chan_count) {
   int ch, count, i, w;
   unsigned char *data;
+  for (ch = 0; ch < chan_count; ++ch) {
+    if (chans[ch] < 0 || chans[ch] >= im->channels) {
+      i_push_errorf(0, "No channel %d in this image", chans[ch]);
+    }
+  }
   if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
       r = im->xsize;
     data = im->idata + (l+y*im->xsize) * im->channels;
     w = r - l;
     count = 0;
-    for (i = 0; i < w; ++i) {
-      for (ch = 0; ch < im->channels; ++ch)
-        if (chan_mask & (1 << ch)) {
-          *samps++ = *data;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          i_push_errorf(0, "No channel %d in this image", chans[ch]);
+          return 0;
+        }
+      }
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+          *samps++ = data[chans[ch]];
           ++count;
         }
-      ++data;
+        data += im->channels;
+      }
+    }
+    else {
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+          *samps++ = data[ch];
+          ++count;
+        }
+        data += im->channels;
+      }
     }
     return count;
   }
@@ -1360,34 +1441,141 @@ int i_gsamp_d(i_img *im, int l, int r, int y, i_sample_t *samps, int chan_mask) 
 }
 
 /*
-=item i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, int chan_mask)
+=back
 
-Reads sample values from im for the horizontal line (l, y) to (r-1,y)
-for the channels specified by chan_mask, where bit 0 is the first
-channel.
+=head2 Image method wrappers
 
-Returns the number of samples read (which should be (r-l) * bits_set(chan_mask)
+These functions provide i_fsample_t functions in terms of their
+i_sample_t versions.
+
+=over
+
+=item i_ppixf_fp(i_img *im, int x, int y, i_fcolor *pix)
 
 =cut
 */
-int i_gsampf_d(i_img *im, int l, int r, int y, i_fsample_t *samps, int chan_mask) {
-  int ch, count, i, w;
-  unsigned char *data;
-  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+
+int i_ppixf_fp(i_img *im, int x, int y, i_fcolor *pix) {
+  i_color temp;
+  int ch;
+
+  for (ch = 0; ch < im->channels; ++ch)
+    temp.channel[ch] = pix->channel[ch] * 255.9;
+  
+  return i_ppix(im, x, y, &temp);
+}
+
+/*
+=item i_gpixf_fp(i_img *im, int x, int y, i_fcolor *pix)
+
+=cut
+*/
+int i_gpixf_fp(i_img *im, int x, int y, i_fcolor *pix) {
+  i_color temp;
+  int ch;
+
+  if (i_gpix(im, x, y, &temp)) {
+    for (ch = 0; ch < im->channels; ++ch)
+      pix->channel[ch] = temp.channel[ch] / 255.9;
+    return 1;
+  }
+  else 
+    return 0;
+}
+
+/*
+=item i_plinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix)
+
+=cut
+*/
+int i_plinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix) {
+  i_color *work;
+
+  if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
       r = im->xsize;
-    data = im->idata + (l+y*im->xsize) * im->channels;
-    w = r - l;
-    count = 0;
-    for (i = 0; i < w; ++i) {
-      for (ch = 0; ch < im->channels; ++ch)
-        if (chan_mask & (1 << ch)) {
-          *samps++ = *data / 255.99;
-          ++count;
-        }
-      ++data;
+    if (r > l) {
+      int ret;
+      int i, ch;
+      work = mymalloc(sizeof(i_color) * (r-l));
+      for (i = 0; i < r-l; ++i) {
+        for (ch = 0; ch < im->channels; ++ch) 
+          work[i].channel[ch] = pix[i].channel[ch] * 255.99;
+      }
+      ret = i_plin(im, l, r, y, work);
+      myfree(work);
+
+      return ret;
     }
-    return count;
+    else {
+      return 0;
+    }
+  }
+  else {
+    return 0;
+  }
+}
+
+/*
+=item i_glinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix)
+
+=cut
+*/
+int i_glinf_fp(i_img *im, int l, int r, int y, i_fcolor *pix) {
+  i_color *work;
+
+  if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    if (r > l) {
+      int ret;
+      int i, ch;
+      work = mymalloc(sizeof(i_color) * (r-l));
+      ret = i_plin(im, l, r, y, work);
+      for (i = 0; i < r-l; ++i) {
+        for (ch = 0; ch < im->channels; ++ch) 
+          pix[i].channel[ch] = work[i].channel[ch] / 255.99;
+      }
+      myfree(work);
+
+      return ret;
+    }
+    else {
+      return 0;
+    }
+  }
+  else {
+    return 0;
+  }
+}
+
+/*
+=item i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp, int *chans, int chan_count)
+
+=cut
+*/
+int i_gsampf_fp(i_img *im, int l, int r, int y, i_fsample_t *samp, 
+                int *chans, int chan_count) {
+  i_sample_t *work;
+
+  if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    if (r > l) {
+      int ret;
+      int i, ch;
+      work = mymalloc(sizeof(i_sample_t) * (r-l));
+      ret = i_gsamp(im, l, r, y, work, chans, chan_count);
+      for (i = 0; i < ret; ++i) {
+          samp[i] = work[i] / 255.99;
+      }
+      myfree(work);
+
+      return ret;
+    }
+    else {
+      return 0;
+    }
   }
   else {
     return 0;

@@ -426,11 +426,12 @@ i_writeppm(i_img *im,int fd) {
       if (data != NULL) {
         int y = 0;
         int x, ch;
-        
         unsigned char *p;
+        static int rgb_chan[3] = { 0, 1, 2 };
+
         rc = 0;
         while (y < im->ysize && rc >= 0) {
-          i_gsamp(im, 0, im->xsize, y, data, 0x7);
+          i_gsamp(im, 0, im->xsize, y, data, rgb_chan, 3);
           rc = mywrite(fd, data, im->xsize * 3);
         }
         myfree(data);
@@ -463,11 +464,12 @@ i_writeppm(i_img *im,int fd) {
       if (data != NULL) {
         int y = 0;
         int x, ch;
-        
+        int chan = 0;
         unsigned char *p;
+
         rc = 0;
         while (y < im->ysize && rc >= 0) {
-          i_gsamp(im, 0, im->xsize, y, data, 0x1);
+          i_gsamp(im, 0, im->xsize, y, data, &chan, 1);
           rc = mywrite(fd, data, im->xsize);
         }
         myfree(data);

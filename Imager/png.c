@@ -336,11 +336,10 @@ i_writepng(i_img *im,int fd) {
       png_write_row(png_ptr, (png_bytep) &(im->idata[channels*width*y]));
   }
   else {
-    unsigned char *data = mymalloc(im->xsize);
+    unsigned char *data = mymalloc(im->xsize * im->channels);
     if (data) {
-      int mask = (1 << im->channels) - 1;
       for (y = 0; y < height; y++) {
-        i_gsamp(im, 0, im->xsize, y, data, mask);
+        i_gsamp(im, 0, im->xsize, y, data, NULL, im->channels);
         png_write_row(png_ptr, (png_bytep)data);
       }
       myfree(data);

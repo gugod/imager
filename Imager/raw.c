@@ -96,7 +96,6 @@ i_writeraw(i_img* im,int fd) {
     }
   }
   else {
-    int mask = ( 1 << im->channels ) - 1;
     int y;
     
     if (im->type == i_direct_type) {
@@ -108,7 +107,7 @@ i_writeraw(i_img* im,int fd) {
         int y = 0;
         int rc = line_size;
         while (rc == line_size && y < im->ysize) {
-          i_gsamp(im, 0, im->xsize, y, data, mask);
+          i_gsamp(im, 0, im->xsize, y, data, NULL, im->channels);
           rc = mywrite(fd, data, line_size);
           ++y;
         }

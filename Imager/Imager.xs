@@ -1953,3 +1953,72 @@ i_get_pixel(im, x, y)
       OUTPUT:
 	RETVAL
 
+Imager::ImgRaw
+i_img_pal_new(x, y, channels, maxpal)
+	int	x
+        int	y
+        int     channels
+	int	maxpal
+
+Imager::ImgRaw
+i_img_to_pal(src, quant)
+        Imager::ImgRaw src
+      PREINIT:
+        HV *hv;
+        i_quantize quant;
+      CODE:
+        if (!SvROK(ST(1)) || ! SvTYPE(SvRV(ST(1))))
+          croak("i_img_to_pal: second argument must be a hash ref");
+        hv = (HV *)SvRV(ST(1));
+        memset(&quant, 0, sizeof(quant));
+        quant.mc_size = 256;
+        quant.mc_colors = mymalloc(quant.mc_size * sizeof(i_color));
+	handle_quant_opts(&quant, hv);
+        RETVAL = i_img_to_pal(src, &quant);
+        if (RETVAL) {
+          copy_colors_back(hv, &quant);
+        }
+        myfree(quant.mc_colors);
+
+void
+i_gpal(im, l, r, y)
+        Imager::ImgRaw  im
+        int     l
+        int     r
+        int     y
+      PREINIT:
+        i_palidx *work;
+        int count, i;
+      PPCODE:
+        if (l < r) {
+          work = mymalloc((l-r) * sizeof(i_palidx));
+          count = i_gpal(im, l, r, y, work);
+          if (count) {
+            EXTEND(SP, count);
+            for (i = 0; i < count; ++i) {
+              PUSHs(sv_2mortal(newSViv(work[i])));
+            }
+          }
+          myfree(work);
+        }
+
+int
+i_ppal(im, l, y, ...)
+        Imager::ImgRaw  im
+        int     l
+        int     y
+      PREINIT:
+        i_palidx *work;
+        int count, i;
+      CODE:
+        if (items > 3) {
+          work = mymalloc(sizeof(i_palidx) * (items-3));
+          for (i=0; i < items-3; ++i) {
+            work[i] = SvIV(ST(i+3));
+          }
+          RETVAL = i_ppal(im, l, l+items-3, y, work);
+          myfree(work);
+        }
+        else {
+          RETVAL = 0;
+        }

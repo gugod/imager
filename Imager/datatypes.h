@@ -62,7 +62,7 @@ typedef enum {
 
 typedef enum {
   itt_double,
-  iit_text
+  itt_text
 } i_tag_type;
 
 typedef struct {
@@ -91,16 +91,16 @@ typedef int (*i_f_glin_t)(i_img *im, int x, int r, int y, i_color *vals);
 typedef int (*i_f_glinf_t)(i_img *im, int x, int r, int y, i_fcolor *vals);
 
 typedef int (*i_f_gsamp_t)(i_img *im, int x, int r, int y, i_sample_t *samp,
-                           int chan_mask);
+                           int *chans, int chan_count);
 typedef int (*i_f_gsampf_t)(i_img *im, int x, int r, int y, i_fsample_t *samp,
-                            int chan_mask);
+                            int *chan, int chan_count);
 
 typedef int (*i_f_gpal_t)(i_img *im, int x, int r, int y, i_palidx *vals);
 typedef int (*i_f_ppal_t)(i_img *im, int x, int r, int y, i_palidx *vals);
 typedef int (*i_f_addcolor_t)(i_img *im, i_color *);
 typedef int (*i_f_getcolor_t)(i_img *im, int i, i_color *);
 typedef int (*i_f_colorcount_t)(i_img *im);
-typedef int (*i_f_findcolor_t)(i_img *im);
+typedef int (*i_f_findcolor_t)(i_img *im, i_color *color, i_palidx *entry);
 
 typedef int (*i_f_destroy_t)(i_img *im);
 
@@ -111,8 +111,8 @@ struct i_img_ {
   i_img_bits bits;
   i_img_type type;
   int virtual; /* image might not keep any data, must use functions */
-  char *idata; /* renamed to force inspection of existing code */
-               /* can be NULL if virtual is non-zero */
+  unsigned char *idata; /* renamed to force inspection of existing code */
+                        /* can be NULL if virtual is non-zero */
   i_img_tags tags;
 
   void *ext_data;
@@ -139,6 +139,15 @@ struct i_img_ {
 
   i_f_destroy_t i_f_destroy;
 };
+
+/* ext_data for paletted images
+ */
+typedef struct {
+  int count; /* amount of space used in palette (in entries) */
+  int alloc; /* amount of space allocated for palette (in entries) */
+  i_color *pal;
+  int last_found;
+} i_img_pal_ext;
 
 /* Helper datatypes
   The types in here so far are:
