@@ -52,6 +52,8 @@ static int i_ppal_masked(i_img *im, int l, int r, int y, i_palidx *vals);
 /*
 =item IIM_base_masked
 
+The basic data we copy into a masked image.
+
 =cut
 */
 static i_img IIM_base_masked =
@@ -88,7 +90,22 @@ static i_img IIM_base_masked =
 };
 
 /*
-=item i_img_masked_new(i_img *targ, i_img *mask, int x, int y, int w, int h)
+=item i_img_masked_new(i_img *targ, i_img *mask, int xbase, int ybase, int w, int h)
+
+Create a new masked image.
+
+The image mask is optional, in which case the image is just a view of
+a rectangular portion of the image.
+
+The mask only has an effect of writing to the image, the entire view
+of the underlying image is readable.
+
+pixel access to mimg(x,y) is translated to targ(x+xbase, y+ybase), as long 
+as (0 <= x < w) and (0 <= y < h).
+
+For a pixel to be writable, the pixel mask(x,y) must have non-zero in
+it's first channel.  No scaling of the pixel is done, the channel 
+sample is treated as boolean.
 
 =cut
 */
@@ -131,11 +148,32 @@ i_img *i_img_masked_new(i_img *targ, i_img *mask, int x, int y, int w, int h) {
   return im;
 }
 
+/*
+=item i_destroy_masked(i_img *im)
+
+The destruction handler for masked images.
+
+Releases the ext_data.
+
+Internal function.
+
+=cut
+*/
+
 static int i_destroy_masked(i_img *im) {
   myfree(MASKEXT(im)->samps);
   myfree(im->ext_data);
 }
 
+/*
+=item i_ppix_masked(i_img *im, int x, int y, i_color *pix)
+
+Write a pixel to a masked image.
+
+Internal function.
+
+=cut
+*/
 static int i_ppix_masked(i_img *im, int x, int y, i_color *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
   int result;
@@ -153,6 +191,15 @@ static int i_ppix_masked(i_img *im, int x, int y, i_color *pix) {
   return result;
 }
 
+/*
+=item i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix)
+
+Write a pixel to a masked image.
+
+Internal function.
+
+=cut
+*/
 static int i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
   int result;
@@ -170,6 +217,15 @@ static int i_ppixf_masked(i_img *im, int x, int y, i_fcolor *pix) {
   return result;
 }
 
+/*
+=item i_plin_masked(i_img *im, int l, int r, int y, i_color *vals)
+
+Write a row of data to a masked image.
+
+Internal function.
+
+=cut
+*/
 static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
   i_img_mask_ext *ext = MASKEXT(im);
   int result;
@@ -240,6 +296,15 @@ static int i_plin_masked(i_img *im, int l, int r, int y, i_color *vals) {
   }
 }
 
+/*
+=item i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals)
+
+Write a row of data to a masked image.
+
+Internal function.
+
+=cut
+*/
 static int i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals) {
   i_img_mask_ext *ext = MASKEXT(im);
   if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
@@ -308,6 +373,15 @@ static int i_plinf_masked(i_img *im, int l, int r, int y, i_fcolor *vals) {
   }
 }
 
+/*
+=item i_gpix_masked(i_img *im, int x, int y, i_color *pix)
+
+Read a pixel from a masked image.
+
+Internal.
+
+=cut
+*/
 static int i_gpix_masked(i_img *im, int x, int y, i_color *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
 
@@ -317,6 +391,15 @@ static int i_gpix_masked(i_img *im, int x, int y, i_color *pix) {
   return i_gpix(ext->targ, x + ext->xbase, y + ext->ybase, pix);
 }
 
+/*
+=item i_gpixf_masked(i_img *im, int x, int y, i_fcolor *pix)
+
+Read a pixel from a masked image.
+
+Internal.
+
+=cut
+*/
 static int i_gpixf_masked(i_img *im, int x, int y, i_fcolor *pix) {
   i_img_mask_ext *ext = MASKEXT(im);
 

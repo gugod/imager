@@ -16,6 +16,7 @@ extern "C" {
 
 typedef io_glue* Imager__IO;
 typedef i_color* Imager__Color;
+typedef i_fcolor* Imager__Color__Float;
 typedef i_img*   Imager__ImgRaw;
 
 
@@ -408,6 +409,13 @@ static void copy_colors_back(HV *hv, i_quantize *quant) {
   }
 }
 
+/* I don't think ICLF_* names belong at the C interface
+   this makes the XS code think we have them, to let us avoid 
+   putting function bodies in the XS code
+*/
+#define ICLF_new_internal(r, g, b, a) i_fcolor_new((r), (g), (b), (a))
+#define ICLF_DESTROY(cl) i_fcolor_destroy(cl)
+
 MODULE = Imager		PACKAGE = Imager::Color	PREFIX = ICL_
 
 Imager::Color
@@ -452,8 +460,45 @@ ICL_rgba(cl)
 
 
 
+MODULE = Imager        PACKAGE = Imager::Color::Float  PREFIX=ICLF_
 
+Imager::Color::Float
+ICLF_new_internal(r, g, b, a)
+        double r
+        double g
+        double b
+        double a
 
+void
+ICLF_DESTROY(cl)
+        Imager::Color::Float    cl
+
+void
+ICLF_rgba(cl)
+        Imager::Color::Float    cl
+      PREINIT:
+        int ch;
+      PPCODE:
+        EXTEND(SP, MAXCHANNELS);
+        for (ch = 0; ch < MAXCHANNELS; ++ch) {
+        /* printf("%d: %g\n", ch, cl->channel[ch]); */
+          PUSHs(sv_2mortal(newSVnv(cl->channel[ch])));
+        }
+
+void
+ICLF_set_internal(cl,r,g,b,a)
+        Imager::Color::Float    cl
+        double     r
+        double     g
+        double     b
+        double     a
+      PPCODE:
+        cl->rgba.r = r;
+        cl->rgba.g = g;
+        cl->rgba.b = b;
+        cl->rgba.a = a;                
+        EXTEND(SP, 1);
+        PUSHs(ST(0));
 
 MODULE = Imager		PACKAGE = Imager::ImgRaw	PREFIX = IIM_
 
@@ -2222,3 +2267,152 @@ i_plin(im, l, y, ...)
       OUTPUT:
         RETVAL
 
+int
+i_ppixf(im, x, y, cl)
+        Imager::ImgRaw im
+        int x
+        int y
+        Imager::Color::Float cl
+
+void
+i_gsampf(im, l, r, y, ...)
+        Imager::ImgRaw im
+        int l
+        int r
+        int y
+      PREINIT:
+        int *chans;
+        int chan_count;
+        i_fsample_t *data;
+        int count, i;
+      PPCODE:
+        if (items < 5)
+          croak("No channel numbers supplied to g_sampf()");
+        if (l < r) {
+          chan_count = items - 4;
+          chans = mymalloc(sizeof(int) * chan_count);
+          for (i = 0; i < chan_count; ++i)
+            chans[i] = SvIV(ST(i+4));
+          data = mymalloc(sizeof(i_fsample_t) * (r-l) * chan_count);
+          count = i_gsampf(im, l, r, y, data, chans, chan_count);
+          if (GIMME_V == G_ARRAY) {
+            EXTEND(SP, count);
+            for (i = 0; i < count; ++i)
+              PUSHs(sv_2mortal(newSVnv(data[i])));
+          }
+          else {
+            EXTEND(SP, 1);
+            PUSHs(sv_2mortal(newSVpv((void *)data, count * sizeof(i_fsample_t))));
+          }
+        }
+        else {
+          if (GIMME_V != G_ARRAY) {
+            EXTEND(SP, 1);
+            PUSHs(&PL_sv_undef);
+          }
+        }
+
+int
+i_plinf(im, l, y, ...)
+        Imager::ImgRaw  im
+        int     l
+        int     y
+      PREINIT:
+        i_fcolor *work;
+        int count, i;
+      CODE:
+        if (items > 3) {
+          work = mymalloc(sizeof(i_fcolor) * (items-3));
+          for (i=0; i < items-3; ++i) {
+            if (sv_isobject(ST(i+3)) 
+                && sv_derived_from(ST(i+3), "Imager::Color::Float")) {
+              IV tmp = SvIV((SV *)SvRV(ST(i+3)));
+              work[i] = *(i_fcolor *)tmp;
+            }
+            else {
+              myfree(work);
+              croak("i_plin: pixels must be Imager::Color::Float objects");
+            }
+          }
+          /**(char *)0 = 1;*/
+          RETVAL = i_plinf(im, l, l+items-3, y, work);
+          myfree(work);
+        }
+        else {
+          RETVAL = 0;
+        }
+      OUTPUT:
+        RETVAL
+
+SV *
+i_gpixf(im, x, y)
+	Imager::ImgRaw im
+	int x
+	int y;
+      PREINIT:
+        i_fcolor *color;
+      CODE:
+	color = (i_fcolor *)mymalloc(sizeof(i_fcolor));
+	if (i_gpixf(im, x, y, color) == 0) {
+          ST(0) = sv_newmortal();
+          sv_setref_pv(ST(0), "Imager::Color::Float", (void *)color);
+        }
+        else {
+          myfree(color);
+          ST(0) = &PL_sv_undef;
+        }
+        
+void
+i_glin(im, l, r, y)
+        Imager::ImgRaw im
+        int l
+        int r
+        int y
+      PREINIT:
+        i_color *vals;
+        int count, i;
+      PPCODE:
+        if (l < r) {
+          vals = mymalloc((r-l) * sizeof(i_color));
+          count = i_glin(im, l, r, y, vals);
+          EXTEND(SP, count);
+          for (i = 0; i < count; ++i) {
+            SV *sv;
+            i_color *col = mymalloc(sizeof(i_color));
+            sv = sv_newmortal();
+            sv_setref_pv(sv, "Imager::Color", (void *)col);
+            PUSHs(sv);
+          }
+          myfree(vals);
+        }
+
+void
+i_glinf(im, l, r, y)
+        Imager::ImgRaw im
+        int l
+        int r
+        int y
+      PREINIT:
+        i_fcolor *vals;
+        int count, i;
+      PPCODE:
+        if (l < r) {
+          vals = mymalloc((r-l) * sizeof(i_fcolor));
+          count = i_glinf(im, l, r, y, vals);
+          EXTEND(SP, count);
+          for (i = 0; i < count; ++i) {
+            SV *sv;
+            i_fcolor *col = mymalloc(sizeof(i_fcolor));
+            *col = vals[i];
+            sv = sv_newmortal();
+            sv_setref_pv(sv, "Imager::Color::Float", (void *)col);
+            PUSHs(sv);
+          }
+          myfree(vals);
+        }
+
+Imager::ImgRaw
+i_img_16_new(x, y, ch)
+        int x
+        int y
+        int ch

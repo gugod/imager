@@ -162,7 +162,7 @@ int i_img_to_rgb_inplace(i_img *im) {
 
   /* nasty hack */
   (im->i_f_destroy)(im);
-  free(im->idata);
+  myfree(im->idata);
   *im = temp;
 
   return 1;

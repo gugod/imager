@@ -39,6 +39,9 @@ void     ICL_info        (i_color *cl);
 void     ICL_DESTROY     (i_color *cl);
 void     ICL_add         (i_color *dst, i_color *src, int ch);
 
+extern i_fcolor *i_fcolor_new(double r, double g, double b, double a);
+extern void i_fcolor_destroy(i_fcolor *cl);
+
 i_img *IIM_new(int x,int y,int ch);
 void   IIM_DESTROY(i_img *im);
 i_img *i_img_new( void );
@@ -393,6 +396,7 @@ extern i_img *i_img_to_pal(i_img *src, i_quantize *quant);
 extern i_img *i_img_to_rgb(i_img *src);
 extern i_img *i_img_masked_new(i_img *targ, i_img *mask, int x, int y, 
                                int w, int h);
+extern i_img *i_img_16_new(int x, int y, int ch);
 
 #ifdef HAVE_LIBJPEG
 i_img* i_readjpeg(int fd,char** iptc_itext,int *tlength);

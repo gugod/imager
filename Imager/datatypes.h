@@ -44,7 +44,7 @@ typedef union {
   i_frgb_color_t rgb;
   i_frgba_color_t rgba;
   i_fcmyk_color_t cmyk;
-  i_sample_t channel[MAXCHANNELS];
+  i_fsample_t channel[MAXCHANNELS];
 } i_fcolor;
 
 typedef enum {

@@ -162,6 +162,35 @@ ICL_DESTROY(i_color *cl) {
 }
 
 /*
+=item i_fcolor_new(double r, double g, double b, double a)
+
+=cut
+*/
+i_fcolor *i_fcolor_new(double r, double g, double b, double a) {
+  i_fcolor *cl = NULL;
+
+  mm_log((1,"i_fcolor_new(r %g,g %g,b %g,a %g)\n", r, g, b, a));
+
+  if ( (cl=mymalloc(sizeof(i_fcolor))) == NULL) m_fatal(2,"malloc() error\n");
+  cl->rgba.r = r;
+  cl->rgba.g = g;
+  cl->rgba.b = b;
+  cl->rgba.a = a;
+  mm_log((1,"(%p) <- i_fcolor_new\n",cl));
+
+  return cl;
+}
+
+/*
+=item i_fcolor_destroy(i_fcolor *cl) 
+
+=cut
+*/
+void i_fcolor_destroy(i_fcolor *cl) {
+  myfree(cl);
+}
+
+/*
 =item IIM_base_8bit_direct (static)
 
 A static i_img object used to initialize direct 8-bit per sample images.
