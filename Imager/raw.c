@@ -105,7 +105,7 @@ i_writeraw(i_img* im,int fd) {
       unsigned char *data = mymalloc(line_size);
       if (data) {
         int y = 0;
-        int rc = line_size;
+        rc = line_size;
         while (rc == line_size && y < im->ysize) {
           i_gsamp(im, 0, im->xsize, y, data, NULL, im->channels);
           rc = mywrite(fd, data, line_size);
@@ -129,6 +129,7 @@ i_writeraw(i_img* im,int fd) {
       i_palidx *data = mymalloc(sizeof(i_palidx) * im->xsize);
       if (data) {
         int y = 0;
+        rc = line_size;
         while (rc == line_size && y < im->ysize) {
           rc = mywrite(fd, data, line_size);
           ++y;
