@@ -16,8 +16,9 @@ print "ok 1\n";
 init_log("testout/t38ft2font.log",1);
 
 sub skip { 
-  print "ok 2 # skip\n";
-  print "ok 3 # skip\n";
+  for (2..7) {
+    print "ok $_ # skip no Freetype2 library\n";
+  }
   malloc_state();
   exit(0);
 }
