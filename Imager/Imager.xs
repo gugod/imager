@@ -1816,11 +1816,50 @@ i_writetiff_wiol_faxable(im, ig, fine)
         Imager::IO     ig
 	       int     fine
 
+undef_int
+i_writetiff_multi_wiol_faxable(ig, fine, ...)
+        Imager::IO     ig
+        int fine
+      PREINIT:
+        int i;
+        int img_count;
+        i_img **imgs;
+      CODE:
+        if (items < 3)
+          croak("Usage: i_writetiff_multi_wiol_faxable(ig, fine, images...)");
+        img_count = items - 2;
+        RETVAL = 1;
+	if (img_count < 1) {
+	  RETVAL = 0;
+	  i_clear_error();
+	  i_push_error(0, "You need to specify images to save");
+	}
+	else {
+          imgs = mymalloc(sizeof(i_img *) * img_count);
+          for (i = 0; i < img_count; ++i) {
+	    SV *sv = ST(2+i);
+	    imgs[i] = NULL;
+	    if (SvROK(sv) && sv_derived_from(sv, "Imager::ImgRaw")) {
+	      imgs[i] = (i_img *)SvIV((SV*)SvRV(sv));
+	    }
+	    else {
+	      i_clear_error();
+	      i_push_error(0, "Only images can be saved");
+              myfree(imgs);
+	      RETVAL = 0;
+	      break;
+            }
+	  }
+          if (RETVAL) {
+	    RETVAL = i_writetiff_multi_wiol_faxable(ig, imgs, img_count, fine);
+          }
+	  myfree(imgs);
+	}
+      OUTPUT:
+        RETVAL
+
 
 #endif /* HAVE_LIBTIFF */
-
-
-
 
 
 #ifdef HAVE_LIBPNG

@@ -1,5 +1,5 @@
 #!perl -w
-print "1..65\n";
+print "1..69\n";
 use Imager qw(:all);
 $^W=1; # warnings during command-line tests
 $|=1;  # give us some progress in the test harness
@@ -24,7 +24,7 @@ i_box_filled($timg, 2, 2, 18, 18, $trans);
 my $test_num;
 
 if (!i_has_format("tiff")) {
-  for (1..65) {
+  for (1..69) {
     print "ok $_ # skip no tiff support\n";
   }
 } else {
@@ -321,6 +321,16 @@ if (!i_has_format("tiff")) {
     ok($tag eq "Page ".($i+1),
        "tag doesn't match original image");
   }
+
+  # multi-image fax files
+  ok(Imager->write_multi({file=>'testout/t106_faxmulti.tiff', class=>'fax'},
+                         $oofim, $oofim), "write multi fax image");
+  @imgs = Imager->read_multi(file=>'testout/t106_faxmulti.tiff');
+  ok(@imgs == 2, "reading multipage fax");
+  ok(Imager::i_img_diff($imgs[0]{IMG}, $oofim->{IMG}) == 0,
+     "compare first fax image");
+  ok(Imager::i_img_diff($imgs[1]{IMG}, $oofim->{IMG}) == 0,
+     "compare second fax image");
 }
 
 sub ok {

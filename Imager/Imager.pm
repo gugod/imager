@@ -1295,7 +1295,14 @@ sub write_multi {
     return $res;
   }
   elsif ($opts->{'type'} eq 'tiff') {
-    my $res = i_writetiff_multi_wiol($IO, @work);
+    my $res;
+    $opts->{fax_fine} = 1 unless exists $opts->{fax_fine};
+    if ($opts->{'class'} && $opts->{'class'} eq 'fax') {
+      $res = i_writetiff_multi_wiol_faxable($IO, $opts->{fax_fine}, @work);
+    }
+    else {
+      $res = i_writetiff_multi_wiol($IO, @work);
+    }
     $res or $class->_set_error($class->_error_as_msg());
     return $res;
   }
@@ -2465,6 +2472,103 @@ horizontal coordinate increases to the right and the vertical
 downwards.
 
 =head2 Reading and writing images
+
+You can read and write a variety of images formats, assuming you have
+the appropriate libraries, and images can read or written to/from
+files, file handles, file descriptors, scalars, or through callbacks.
+
+To see which image formats Imager is compiled to support the following
+code snippet is sufficient:
+
+  use Imager;
+  print join " ", keys %Imager::formats;
+
+This will include some other information identifying libraries rather
+than file formats.
+
+Reading a writing to and from files is simple, use the C<read()>
+method to read an image:
+
+  my $img = Imager->new;
+  $img->read(file=>$filename, type=>$type)
+    or die "Cannot read $filename: ", $img->errstr;
+
+and the C<write()> method to write an image:
+
+  $img->write(file=>$filename, type=>$type)
+    or die "Cannot write $filename: ", $img->errstr;
+
+If the I<filename> includes an extension that Imager recognizes, then
+you don't need the I<type>, but you may want to provide one anyway.
+Imager currently does not check the files magic to determine the
+format.
+
+When you read an image, Imager may set some tags, possibly including
+information about the spatial resolution, textual information, and
+animation information.  See L</Tags> for specifics.
+
+When reading or writing you can specify one of a variety of sources or
+targets:
+
+=over
+
+=item file
+
+The C<file> parameter is the name of the image file to be written to
+or read from.  If Imager recognizes the extension of the file you do
+not need to supply a C<type>.
+
+=item fh
+
+C<fh> is a file handle, typically either returned from
+C<<IO::File->new()>>, or a glob from an C<open> call.  You should call
+C<binmode> on the handle before passing it to Imager.
+
+=item fd
+
+C<fd> is a file descriptor.  You can get this by calling the
+C<fileno()> function on a file handle, or by using one of the standard
+file descriptor numbers.
+
+=item data
+
+When reading data, C<data> is a scalar containing the image file data,
+when writing, C<data> is a reference to the scalar to save the image
+file data too.  For GIF images you will need giflib 4 or higher, and
+you may need to patch giflib to use this option for writing.
+
+=item callback
+
+Imager will make calls back to your supplied coderefs to read, write
+and seek from/to/through the image file.
+
+When reading from a file you can use either C<callback> or C<readcb>
+to supply the read callback, and when writing C<callback> or
+C<writecb> to supply the write callback.
+
+When writing you can also supply the C<maxbuffer> option to set the
+maximum amount of data that will be buffered before your write
+callback is called.  Note: the amount of data supplied to your
+callback can be smaller or larger than this size.
+
+The read callback is called with 2 parameters, the minimum amount of
+data required, and the maximum amount that Imager will store in it's C
+level buffer.  You may want to return the minimum if you have a slow
+data source, or the maximum if you have a fast source and want to
+prevent many calls to your perl callback.  The read data should be
+returned as a scalar.
+
+Your write callback takes exactly one parameter, a scalar containing
+the data to be written.  Return true for success.
+
+The seek callback takes 2 parameters, a I<POSITION>, and a I<WHENCE>,
+defined in the same way as perl's seek function.
+
+You can also supply a C<closecb> which is called with no parameters
+when there is no more data to be written.  This could be used to flush
+buffered data.
+
+=back
 
 C<$img-E<gt>read()> generally takes two parameters, 'file' and 'type'.
 If the type of the file can be determined from the suffix of the file
