@@ -2057,6 +2057,7 @@ i_writegif_wiol(ig, opts,...)
 	hv = (HV *)SvRV(ST(1));
 	memset(&quant, 0, sizeof(quant));
 	quant.mc_size = 256;
+	handle_quant_opts(&quant, hv);
 	img_count = items - 2;
 	RETVAL = 1;
 	if (img_count < 1) {

@@ -1716,6 +1716,15 @@ i_writegif_low(i_quantize *quant, GifFileType *gf, i_img **imgs, int count) {
       map = NULL;
     }
 
+    if (!do_gce(gf, imgs[imgn], want_trans, trans_index)) {
+      i_mempool_destroy(&mp);
+      quant->mc_colors = orig_colors;
+      myfree(result);
+      EGifCloseFile(gf);
+      return 0;
+    }
+
+
     if (!i_tags_get_int(&imgs[imgn]->tags, "gif_interlace", 0, &interlace))
       interlace = 0;
     if (EGifPutImageDesc(gf, posx, posy, imgs[imgn]->xsize, 

@@ -215,12 +215,13 @@ EOS
       print "ok 14 # skip giflib3 doesn't support callbacks\n";
     }
     @imgs = ();
+    my $c = i_color_new(0,0,0,0);
     for my $g (0..3) {
       my $im = Imager::ImgRaw::new(200, 200, 3);
-      _add_tags($im, gif_local_map=>1);
+      _add_tags($im, gif_local_map=>1, gif_delay=>150, gif_loop=>10);
       for my $x (0 .. 39) {
 	for my $y (0 .. 39) {
-	  my $c = i_color_new($x * 6, $y * 6, 32*$g+$x+$y, 255);
+          $c->set($x, $x * 6, $y * 6, 32*$g+$x+$y);
 	  i_box_filled($im, $x*5, $y*5, $x*5+4, $y*5+4, $c);
 	}
       }
@@ -235,9 +236,6 @@ EOS
     binmode FH;
     if (i_writegif_gen(fileno(FH), { #make_colors=>'webmap',
                                      translate=>'giflib',
-                                     gif_delays=>[ 50, 50, 50, 50 ],
-                                     #gif_loop_count => 50,
-                                     gif_each_palette => 1,
                                    }, @imgs)) {
       print "ok 15\n";
     }
