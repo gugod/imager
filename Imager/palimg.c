@@ -237,17 +237,17 @@ present in the image.
 int i_ppix_p(i_img *im, int x, int y, i_color *val) {
   i_palidx which;
   if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize)
-    return 0;
+    return -1;
   if (i_findcolor(im, val, &which)) {
     ((i_palidx *)im->idata)[x + y * im->xsize] = which;
-    return 1;
+    return 0;
   }
   else {
     if (i_img_to_rgb_inplace(im)) {
       return i_ppix(im, x, y, val);
     }
     else
-      return 0;
+      return -1;
   }
 }
 
@@ -261,14 +261,14 @@ Retrieve a pixel, converting from a palette index to a color.
 int i_gpix_p(i_img *im, int x, int y, i_color *val) {
   i_palidx which;
   if (x < 0 || x >= im->xsize || y < 0 || y >= im->ysize) {
-    return 0;
+    return -1;
   }
   which = ((i_palidx *)im->idata)[x + y * im->xsize];
   if (which > PALEXT(im)->count)
-    return 0;
+    return -1;
   *val = PALEXT(im)->pal[which];
 
-  return 1;
+  return 0;
 }
 
 /*
@@ -344,11 +344,6 @@ int i_plin_p(i_img *im, int l, int r, int y, i_color *vals) {
 int i_gsamp_p(i_img *im, int l, int r, int y, i_sample_t *samps, 
               int *chans, int chan_count) {
   int ch;
-  for (ch = 0; ch < chan_count; ++ch) {
-    if (chans[ch] < 0 || chans[ch] >= im->channels) {
-      i_push_errorf(0, "No channel %d in this image", chans[ch]);
-    }
-  }
   if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
     int palsize = PALEXT(im)->count;
     i_color *pal = PALEXT(im)->pal;
@@ -359,12 +354,31 @@ int i_gsamp_p(i_img *im, int l, int r, int y, i_sample_t *samps,
     data = ((i_palidx *)im->idata) + l + y * im->xsize;
     count = 0;
     w = r - l;
-    for (i = 0; i < w; ++i) {
-      i_palidx which = *data++;
-      if (which < palsize) {
-        for (ch = 0; ch < chan_count; ++ch) {
-          *samps++ = pal[which].channel[chans[ch]];
-          ++count;
+    if (chans) {
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          i_push_errorf(0, "No channel %d in this image", chans[ch]);
+        }
+      }
+
+      for (i = 0; i < w; ++i) {
+        i_palidx which = *data++;
+        if (which < palsize) {
+          for (ch = 0; ch < chan_count; ++ch) {
+            *samps++ = pal[which].channel[chans[ch]];
+            ++count;
+          }
+        }
+      }
+    }
+    else {
+      for (i = 0; i < w; ++i) {
+        i_palidx which = *data++;
+        if (which < palsize) {
+          for (ch = 0; ch < chan_count; ++ch) {
+            *samps++ = pal[which].channel[ch];
+            ++count;
+          }
         }
       }
     }

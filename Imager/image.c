@@ -1101,7 +1101,7 @@ Internal function.
 This is the function kept in the i_f_ppix member of an i_img object.
 It does a normal store of a pixel into the image with range checking.
 
-Returns true if the pixel could be set, false otherwise.
+Returns 0 if the pixel could be set, -1 otherwise.
 
 =cut
 */
@@ -1126,7 +1126,7 @@ Internal function.
 This is the function kept in the i_f_gpix member of an i_img object.
 It does normal retrieval of a pixel from the image with range checking.
 
-Returns true if the pixel could be set, false otherwise.
+Returns 0 if the pixel could be set, -1 otherwise.
 
 =cut
 */
@@ -1477,10 +1477,10 @@ int i_gpixf_fp(i_img *im, int x, int y, i_fcolor *pix) {
   if (i_gpix(im, x, y, &temp)) {
     for (ch = 0; ch < im->channels; ++ch)
       pix->channel[ch] = temp.channel[ch] / 255.9;
-    return 1;
+    return 0;
   }
   else 
-    return 0;
+    return -1;
 }
 
 /*

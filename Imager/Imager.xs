@@ -1942,16 +1942,31 @@ DSO_call(handle,func_index,hv)
 
 
 # this is mostly for testing...
-Imager::Color
+SV *
 i_get_pixel(im, x, y)
 	Imager::ImgRaw im
 	int x
 	int y;
+      PREINIT:
+        i_color *color;
       CODE:
-	RETVAL = (i_color *)mymalloc(sizeof(i_color));
-	i_gpix(im, x, y, RETVAL);
-      OUTPUT:
-	RETVAL
+	color = (i_color *)mymalloc(sizeof(i_color));
+	if (i_gpix(im, x, y, color) == 0) {
+          ST(0) = sv_newmortal();
+          sv_setref_pv(ST(0), "Imager::Color", (void *)color);
+        }
+        else {
+          myfree(color);
+          ST(0) = &PL_sv_undef;
+        }
+        
+
+int
+i_ppix(im, x, y, cl)
+        Imager::ImgRaw im
+        int x
+        int y
+        Imager::Color cl
 
 Imager::ImgRaw
 i_img_pal_new(x, y, channels, maxpal)
@@ -1995,15 +2010,25 @@ i_gpal(im, l, r, y)
         int count, i;
       PPCODE:
         if (l < r) {
-          work = mymalloc((l-r) * sizeof(i_palidx));
+          work = mymalloc((r-l) * sizeof(i_palidx));
           count = i_gpal(im, l, r, y, work);
-          if (count) {
+          if (GIMME_V == G_ARRAY) {
             EXTEND(SP, count);
             for (i = 0; i < count; ++i) {
               PUSHs(sv_2mortal(newSViv(work[i])));
             }
           }
+          else {
+            EXTEND(SP, 1);
+            PUSHs(sv_2mortal(newSVpv(work, count * sizeof(i_palidx))));
+          }
           myfree(work);
+        }
+        else {
+          if (GIMME_V != G_ARRAY) {
+            EXTEND(SP, 1);
+            PUSHs(&PL_sv_undef);
+          }
         }
 
 int
@@ -2038,16 +2063,14 @@ i_addcolor(im, color)
       CODE:
         index = i_addcolor(im, color);
         if (index == 0) {
-          RETVAL = sv_2mortal(newSVpv("0 but true", 0));
+          ST(0) = sv_2mortal(newSVpv("0 but true", 0));
         }
         else if (index == -1) {
-          RETVAL = &PL_sv_undef;
+          ST(0) = &PL_sv_undef;
         }
         else {
-          RETVAL = sv_2mortal(newSViv(index));
+          ST(0) = sv_2mortal(newSViv(index));
         }
-      OUTPUT:
-        RETVAL
 
 SV *
 i_getcolor(im, index)
@@ -2058,15 +2081,13 @@ i_getcolor(im, index)
       CODE:
         color = mymalloc(sizeof(i_color));
         if (i_getcolor(im, index, color)) {
-          RETVAL = sv_newmortal();
-          sv_setref_pv(RETVAL, "Imager::Color", (void *)color);
+          ST(0) = sv_newmortal();
+          sv_setref_pv(ST(0), "Imager::Color", (void *)color);
         }
         else {
           myfree(color);
-          RETVAL = &PL_sv_undef;
+          ST(0) = &PL_sv_undef;
         }
-      OUTPUT:
-        RETVAL
 
 SV *
 i_colorcount(im)
@@ -2076,13 +2097,11 @@ i_colorcount(im)
       CODE:
         count = i_colorcount(im);
         if (count >= 0) {
-          RETVAL = sv_2mortal(newSViv(count));
+          ST(0) = sv_2mortal(newSViv(count));
         }
         else {
-          RETVAL = &PL_sv_undef;
+          ST(0) = &PL_sv_undef;
         }
-      OUTPUT:
-        RETVAL
 
 SV *
 i_findcolor(im, color)
@@ -2092,10 +2111,69 @@ i_findcolor(im, color)
         i_palidx index;
       CODE:
         if (i_findcolor(im, color, &index)) {
-          RETVAL = sv_2mortal(newSViv(index));
+          ST(0) = sv_2mortal(newSViv(index));
         }
         else {
-          RETVAL = &PL_sv_undef;
+          ST(0) = &PL_sv_undef;
         }
+
+int
+i_img_bits(im)
+        Imager::ImgRaw  im
+      CODE:
+        RETVAL = im->bits;
       OUTPUT:
         RETVAL
+
+int
+i_img_type(im)
+        Imager::ImgRaw  im
+      CODE:
+        RETVAL = im->type;
+      OUTPUT:
+        RETVAL
+
+SV *
+i_img_virtual(im)
+        Imager::ImgRaw  im
+      CODE:
+        ST(0) = im->virtual ? &PL_sv_yes : &PL_sv_no;
+
+void
+i_gsamp(im, l, r, y, ...)
+        Imager::ImgRaw im
+        int l
+        int r
+        int y
+      PREINIT:
+        int *chans;
+        int chan_count;
+        i_sample_t *data;
+        int count, i;
+      PPCODE:
+        if (items < 5)
+          croak("No channel numbers supplied to g_samp()");
+        if (l < r) {
+          chan_count = items - 4;
+          chans = mymalloc(sizeof(int) * chan_count);
+          for (i = 0; i < chan_count; ++i)
+            chans[i] = SvIV(ST(i+4));
+          data = mymalloc(sizeof(i_sample_t) * (r-l) * chan_count);
+          count = i_gsamp(im, l, r, y, data, chans, chan_count);
+          if (GIMME_V == G_ARRAY) {
+            EXTEND(SP, count);
+            for (i = 0; i < count; ++i)
+              PUSHs(sv_2mortal(newSViv(data[i])));
+          }
+          else {
+            EXTEND(SP, 1);
+            PUSHs(sv_2mortal(newSVpv(data, count * sizeof(i_sample_t))));
+          }
+        }
+        else {
+          if (GIMME_V != G_ARRAY) {
+            EXTEND(SP, 1);
+            PUSHs(&PL_sv_undef);
+          }
+        }
+

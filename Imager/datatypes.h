@@ -50,7 +50,7 @@ typedef union {
 typedef enum {
   i_direct_type, /* direct colour, keeps RGB values per pixel */
   i_palette_type, /* keeps a palette index per pixel */
-} i_img_type;
+} i_img_type_t;
 
 typedef enum { 
   /* bits per sample, not per pixel */
@@ -58,7 +58,7 @@ typedef enum {
   i_8_bits = 8,
   i_16_bits = 16,
   i_double_bits = 64
-} i_img_bits;
+} i_img_bits_t;
 
 typedef enum {
   itt_double,
@@ -108,8 +108,8 @@ struct i_img_ {
   int channels;
   int xsize,ysize,bytes;
   unsigned int ch_mask;
-  i_img_bits bits;
-  i_img_type type;
+  i_img_bits_t bits;
+  i_img_type_t type;
   int virtual; /* image might not keep any data, must use functions */
   unsigned char *idata; /* renamed to force inspection of existing code */
                         /* can be NULL if virtual is non-zero */
