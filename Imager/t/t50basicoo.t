@@ -292,11 +292,11 @@ for my $type (@types) {
       ok($data eq $buf, "comparing callback output to file data");
     }
     else {
-      skip("couldn't open data source", 8);
+      skip("couldn't open data source", 7);
     }
   }
   else {
-    skip("giflib < 4 doesn't support callbacks", 9)
+    skip("giflib < 4 doesn't support callbacks", 8);
   }
 }
 
