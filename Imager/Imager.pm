@@ -854,6 +854,22 @@ sub deltag {
   }
 }
 
+sub settag {
+  my ($self, %opts) = @_;
+
+  if ($opts{name}) {
+    $self->deltag(name=>$opts{name});
+    return $self->addtag(name=>$opts{name}, value=>$opts{value});
+  }
+  elsif (defined $opts{code}) {
+    $self->deltag(code=>$opts{code});
+    return $self->addtag(code=>$opts{code}, value=>$opts{value});
+  }
+  else {
+    return undef;
+  }
+}
+
 my @needseekcb = qw/tiff/;
 my %needseekcb = map { $_, $_ } @needseekcb;
 
@@ -1162,6 +1178,56 @@ sub read {
   return $self;
 }
 
+sub _set_opts {
+  my ($self, $opts, $prefix, @imgs) = @_;
+
+  for my $opt (grep /^\Q$prefix/, keys %$opts) {
+    my $value = $opts->{$opt};
+    if (ref $value) {
+      if (UNIVERSAL::isa($value, "Imager::Color")) {
+        my $tag = sprintf("color(%d,%d,%d,%d)", $value->rgba);
+        for my $img (@imgs) {
+          $img->settag(name=>$opt, value=>$tag);
+        }
+      }
+      elsif (ref($value) eq 'ARRAY') {
+        for my $i (0..$#$value) {
+          my $val = $value->[$i];
+          if (ref $val) {
+            if (UNIVERSAL::isa($val, "Imager::Color")) {
+              my $tag = sprintf("color(%d,%d,%d,%d)", $value->rgba);
+              $i < @imgs and
+                $imgs[$i]->settag(name=>$opt, value=>$tag);
+            }
+            else {
+              $self->_set_error("Unknown reference type " . ref($value) . 
+                                " supplied in array for $opt");
+              return;
+            }
+          }
+          else {
+            $i < @imgs
+              and $imgs[$i]->settag(name=>$opt, value=>$val);
+          }
+        }
+      }
+      else {
+        $self->_set_error("Unknown reference type " . ref($value) . 
+                          " supplied for $opt");
+        return;
+      }
+    }
+    else {
+      # set it as a tag for every image
+      for my $img (@imgs) {
+        $img->settag(name=>$opt, value=>$value);
+      }
+    }
+  }
+
+  return 1;
+}
+
 # Write an image to file
 sub write {
   my $self = shift;
@@ -1174,6 +1240,9 @@ sub write {
 	     wierdpack=>0,
 	     fax_fine=>1, @_);
   my $rc;
+
+  $self->_set_opts(\%input, "i_", $self)
+    or return undef;
 
   my %iolready=( tiff=>1, raw=>1, png=>1, pnm=>1, bmp=>1, jpeg=>1, tga=>1, 
                  gif=>1 ); # this will be SO MUCH BETTER once they are all in there
@@ -1197,6 +1266,11 @@ sub write {
   if ($iolready{$input{'type'}}) {
 
     if ($input{'type'} eq 'tiff') {
+      $self->_set_opts(\%input, "tiff_", $self)
+        or return undef;
+      $self->_set_opts(\%input, "exif_", $self)
+        or return undef;
+
       if (defined $input{class} && $input{class} eq 'fax') {
 	if (!i_writetiff_wiol_faxable($self->{IMG}, $IO, $input{fax_fine})) {
 	  $self->{ERRSTR}='Could not write to buffer';
@@ -1209,36 +1283,50 @@ sub write {
 	}
       }
     } elsif ( $input{'type'} eq 'pnm' ) {
+      $self->_set_opts(\%input, "pnm_", $self)
+        or return undef;
       if ( ! i_writeppm_wiol($self->{IMG},$IO) ) {
 	$self->{ERRSTR}='unable to write pnm image';
 	return undef;
       }
       $self->{DEBUG} && print "writing a pnm file\n";
     } elsif ( $input{'type'} eq 'raw' ) {
+      $self->_set_opts(\%input, "raw_", $self)
+        or return undef;
       if ( !i_writeraw_wiol($self->{IMG},$IO) ) {
 	$self->{ERRSTR}='unable to write raw image';
 	return undef;
       }
       $self->{DEBUG} && print "writing a raw file\n";
     } elsif ( $input{'type'} eq 'png' ) {
+      $self->_set_opts(\%input, "png_", $self)
+        or return undef;
       if ( !i_writepng_wiol($self->{IMG}, $IO) ) {
 	$self->{ERRSTR}='unable to write png image';
 	return undef;
       }
       $self->{DEBUG} && print "writing a png file\n";
     } elsif ( $input{'type'} eq 'jpeg' ) {
+      $self->_set_opts(\%input, "jpeg_", $self)
+        or return undef;
+      $self->_set_opts(\%input, "exif_", $self)
+        or return undef;
       if ( !i_writejpeg_wiol($self->{IMG}, $IO, $input{jpegquality})) {
         $self->{ERRSTR} = $self->_error_as_msg();
 	return undef;
       }
       $self->{DEBUG} && print "writing a jpeg file\n";
     } elsif ( $input{'type'} eq 'bmp' ) {
+      $self->_set_opts(\%input, "bmp_", $self)
+        or return undef;
       if ( !i_writebmp_wiol($self->{IMG}, $IO) ) {
 	$self->{ERRSTR}='unable to write bmp image';
 	return undef;
       }
       $self->{DEBUG} && print "writing a bmp file\n";
     } elsif ( $input{'type'} eq 'tga' ) {
+      $self->_set_opts(\%input, "tga_", $self)
+        or return undef;
 
       if ( !i_writetga_wiol($self->{IMG}, $IO, $input{wierdpack}, $input{compress}, $input{idstring}) ) {
 	$self->{ERRSTR}=$self->_error_as_msg();
@@ -1246,6 +1334,8 @@ sub write {
       }
       $self->{DEBUG} && print "writing a tga file\n";
     } elsif ( $input{'type'} eq 'gif' ) {
+      $self->_set_opts(\%input, "gif_", $self)
+        or return undef;
       # compatibility with the old interfaces
       if ($input{gifquant} eq 'lm') {
         $input{make_colors} = 'addi';
@@ -1289,10 +1379,14 @@ sub write_multi {
     $class->_set_error('Usage: Imager->write_multi({ options }, @images)');
     return 0;
   }
+  $class->_set_opts($opts, "i_", @images)
+    or return;
   my @work = map $_->{IMG}, @images;
   my ($IO, $file) = $class->_get_writer_io($opts, $opts->{'type'})
     or return undef;
   if ($opts->{'type'} eq 'gif') {
+    $class->_set_opts($opts, "gif_", @images)
+      or return;
     my $gif_delays = $opts->{gif_delays};
     local $opts->{gif_delays} = $gif_delays;
     if ($opts->{gif_delays} && !ref $opts->{gif_delays}) {
@@ -1304,6 +1398,10 @@ sub write_multi {
     return $res;
   }
   elsif ($opts->{'type'} eq 'tiff') {
+    $class->_set_opts($opts, "tiff_", @images)
+      or return;
+    $class->_set_opts($opts, "exif_", @images)
+      or return;
     my $res;
     $opts->{fax_fine} = 1 unless exists $opts->{fax_fine};
     if ($opts->{'class'} && $opts->{'class'} eq 'fax') {

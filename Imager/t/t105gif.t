@@ -29,7 +29,7 @@ if (!i_has_format("gif")) {
 } else {
     open(FH,">testout/t105.gif") || die "Cannot open testout/t105.gif\n";
     binmode(FH);
-    i_writegifmc($img,fileno(FH),7) || die "Cannot write testout/t105.gif\n";
+    i_writegifmc($img,fileno(FH),6) || die "Cannot write testout/t105.gif\n";
     close(FH);
 
     print "ok 1\n";
@@ -217,6 +217,7 @@ EOS
     @imgs = ();
     for my $g (0..3) {
       my $im = Imager::ImgRaw::new(200, 200, 3);
+      _add_tags($im, gif_local_map=>1);
       for my $x (0 .. 39) {
 	for my $y (0 .. 39) {
 	  my $c = i_color_new($x * 6, $y * 6, 32*$g+$x+$y, 255);
@@ -232,7 +233,7 @@ EOS
     # output looks moderately horrible
     open FH, ">testout/t105_mult_pall.gif" or die "Cannot create file: $!";
     binmode FH;
-    if (i_writegif_gen(fileno(FH), { make_colors=>'webmap',
+    if (i_writegif_gen(fileno(FH), { #make_colors=>'webmap',
                                      translate=>'giflib',
                                      gif_delays=>[ 50, 50, 50, 50 ],
                                      #gif_loop_count => 50,
@@ -489,3 +490,18 @@ sub read_failure {
   close FH;
 }
 
+sub _clear_tags {
+  my (@imgs) = @_;
+
+  for my $img (@imgs) {
+    $img->deltag(code=>0);
+  }
+}
+
+sub _add_tags {
+  my ($img, %tags) = @_;
+
+  for my $key (keys %tags) {
+    Imager::i_tags_add($img, $key, 0, $tags{$key}, 0);
+  }
+}
