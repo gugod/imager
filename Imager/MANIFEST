@@ -45,6 +45,7 @@ iolayer.c
 fontfiles/dcr10.afm
 fontfiles/dcr10.pfb
 fontfiles/dodge.ttf
+lib/Imager/interface.pod
 lib/Imager/regmach.pod
 lib/Imager/Regops.pm
 lib/Imager/Expr.pm
