@@ -341,8 +341,8 @@ i_writetiff_wiol(i_img *im, io_glue *ig) {
 
   got_xres = i_tags_get_float(&im->tags, "i_xres", 0, &xres);
   got_yres = i_tags_get_float(&im->tags, "i_yres", 0, &yres);
-  got_aspectonly = i_tags_get_int(&im->tags, "i_aspect_only", 0, 
-				  &aspect_only);
+  if (!i_tags_get_int(&im->tags, "i_aspect_only", 0,&aspect_only))
+    aspect_only = 0;
   if (!i_tags_get_int(&im->tags, "tiff_resolutionunit", 0, &resunit))
     resunit = RESUNIT_INCH;
   if (got_xres || got_yres) {
@@ -353,9 +353,14 @@ i_writetiff_wiol(i_img *im, io_glue *ig) {
     if (aspect_only) {
       resunit = RESUNIT_NONE;
     }
-    else if (resunit == RESUNIT_CENTIMETER) {
-      xres /= 2.54;
-      yres /= 2.54;
+    else {
+      if (resunit == RESUNIT_CENTIMETER) {
+	xres /= 2.54;
+	yres /= 2.54;
+      }
+      else {
+	resunit  = RESUNIT_INCH;
+      }
     }
     if (!TIFFSetField(tif, TIFFTAG_XRESOLUTION, (float)xres)) {
       TIFFClose(tif);

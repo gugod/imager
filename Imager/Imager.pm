@@ -3379,6 +3379,18 @@ the first block of the first gif comment before each image.
 Where applicable, the ("name") is the name of that field from the GIF89 
 standard.
 
+The following ares are set in a TIFF image when read, and can be set
+to control output:
+
+=over
+
+=item tiff_resolutionunit
+
+The value of the ResolutionUnit tag.  This is ignored on writing if
+the i_aspect_only tag is non-zero.
+
+=back
+
 Some standard tags will be implemented as time goes by:
 
 =over
