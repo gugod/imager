@@ -69,7 +69,7 @@ print "ok 39\n";
 my $rimg = $img->rotate(degrees=>10)
   or print "not ";
 print "ok 40\n";
-if (!$rimg->write(file=>"testout/t64_rot45.ppm")) {
+if (!$rimg->write(file=>"testout/t64_rot10.ppm")) {
   print "# Cannot save: ",$rimg->errstr,"\n";
 }
 

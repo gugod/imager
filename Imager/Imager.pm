@@ -828,7 +828,7 @@ sub write {
   } else {
     $fh = new IO::File($input{file},"w+");
     if (!defined $fh) { $self->{ERRSTR}='Could not open file'; return undef; }
-    binmode($fh);
+    binmode($fh) or die;
     $fd = $fh->fileno();
   }
 

@@ -7,7 +7,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..7\n"; }
+BEGIN { $| = 1; print "1..8\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager qw(:all);
 $loaded = 1;
@@ -104,5 +104,17 @@ $im->string(font=>$oof,
             aa=>1,
             align=>1) or print "not ";
 print "ok 7\n";
+use Imager::Matrix2d ':handy';
+$oof->transform(matrix=>m2d_rotate(degrees=>-30));
+$im->string(font=>$oof,
+            text=>"ROTATE",
+            x=>20,
+            y=>20,
+            size=>50,
+	    sizew=>40,
+            channel=>2,
+            aa => 1,
+            align=>0) or print "not ";
+print "ok 8\n";
 $im->write(file=>'testout/t38_oo.ppm')
   or print "# could not save OO output: ",$im->errstr,"\n";
