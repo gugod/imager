@@ -2865,10 +2865,10 @@ i_ft2_bbox_r(font, cheight, cwidth, text, vlayout, utf8)
         int bbox[8];
         int i;
       PPCODE:
-  #ifdef SvUTF8
+#ifdef SvUTF8
         if (SvUTF8(ST(3)))
           utf8 = 1;
-  #endif
+#endif
         if (i_ft2_bbox_r(font, cheight, cwidth, text, strlen(text), vlayout,
                          utf8, bbox)) {
           EXTEND(SP, 8);
@@ -2893,11 +2893,11 @@ i_ft2_text(font, im, tx, ty, cl, cheight, cwidth, text, align, aa, vlayout, utf8
         char *text;
         STRLEN len;
       CODE:
-  #ifdef SvUTF8
+#ifdef SvUTF8
         if (SvUTF8(ST(7))) {
           utf8 = 1;
         }
-  #endif
+#endif
         text = SvPV(ST(7), len);
         RETVAL = i_ft2_text(font, im, tx, ty, cl, cheight, cwidth, text,
                             len, align, aa, vlayout, utf8);
@@ -2919,10 +2919,10 @@ i_ft2_cp(font, im, tx, ty, channel, cheight, cwidth, text, align, aa, vlayout, u
         int vlayout
         int utf8
       CODE:
-  #ifdef SvUTF8
+#ifdef SvUTF8
         if (SvUTF8(ST(7)))
           utf8 = 1;
-  #endif
+#endif
         RETVAL = i_ft2_cp(font, im, tx, ty, channel, cheight, cwidth, text,
                           strlen(text), align, aa, vlayout, 1);
       OUTPUT:
