@@ -119,3 +119,4 @@ dynfilt/mandelbrot.c
 dynfilt/flines.c
 dynfilt/compile.txt
 dynfilt/Makefile.PL
+win32.c		Implements font support through Win32 GDI

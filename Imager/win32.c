@@ -9,6 +9,11 @@ win32.c - implements some win32 specific code, specifically Win32 font support.
 
 =head1 SYNOPSIS
 
+   int bbox[6];
+   if (i_wf_bbox(facename, size, text, text_len, bbox)) {
+     // we have the bbox
+   }
+
 */
 
 static void set_logfont(char *face, int size, LOGFONT *lf) {
@@ -124,36 +129,63 @@ LPVOID render_text(char *face, int size, char *text, int length, int aa,
 #endif
 
   bmpDc = CreateCompatibleDC(dc);
+  if (bmpDc) {
+    font = CreateFontIndirect(&lf);
+    if (font) {
+      oldFont = SelectObject(bmpDc, font);
+      GetTextExtentPoint32(bmpDc, text, length, &sz);
+      GetTextMetrics(bmpDc, tm);
+      
+      memset(&bmi, 0, sizeof(bmi));
+      bmih->biSize = sizeof(*bmih);
+      bmih->biWidth = sz.cx;
+      bmih->biHeight = sz.cy;
+      bmih->biPlanes = 1;
+      bmih->biBitCount = 24;
+      bmih->biCompression = BI_RGB;
+      bmih->biSizeImage = 0;
+      bmih->biXPelsPerMeter = 72 / 2.54 * 100;
+      bmih->biYPelsPerMeter = bmih->biXPelsPerMeter;
+      bmih->biClrUsed = 0;
+      bmih->biClrImportant = 0;
+      
+      bm = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
 
-  font = CreateFontIndirect(&lf);
-  oldFont = SelectObject(bmpDc, font);
-  GetTextExtentPoint32(bmpDc, text, length, &sz);
-  GetTextMetrics(bmpDc, tm);
+      if (bm) {
+	oldBm = SelectObject(bmpDc, bm);
+	SetTextColor(bmpDc, RGB(255, 255, 255));
+	SetBkColor(bmpDc, RGB(0, 0, 0));
+	TextOut(bmpDc, 0, 0, text, length);
+	SelectObject(bmpDc, oldBm);
+      }
+      else {
+	i_push_errorf(0, "Could not create DIB section for render: %ld",
+		      GetLastError());
+	SelectObject(bmpDc, oldFont);
+	DeleteObject(font);
+	DeleteDC(bmpDc);
+	ReleaseDC(NULL, dc);
+	return NULL;
+      }
+      SelectObject(bmpDc, oldFont);
+      DeleteObject(font);
+    }
+    else {
+      i_push_errorf(0, "Could not create logical font: %ld",
+		    GetLastError());
+      DeleteDC(bmpDc);
+      ReleaseDC(NULL, dc);
+      return NULL;
+    }
+    DeleteDC(bmpDc);
+  }
+  else {
+    i_push_errorf(0, "Could not create rendering DC: %ld", GetLastError());
+    ReleaseDC(NULL, dc);
+    return NULL;
+  }
 
-  memset(&bmi, 0, sizeof(bmi));
-  bmih->biSize = sizeof(*bmih);
-  bmih->biWidth = sz.cx;
-  bmih->biHeight = sz.cy;
-  bmih->biPlanes = 1;
-  bmih->biBitCount = 24;
-  bmih->biCompression = BI_RGB;
-  bmih->biSizeImage = 0;
-  bmih->biXPelsPerMeter = 72 / 2.54 * 100;
-  bmih->biYPelsPerMeter = bmih->biXPelsPerMeter;
-  bmih->biClrUsed = 0;
-  bmih->biClrImportant = 0;
-  
-  bm = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
-
-  oldBm = SelectObject(bmpDc, bm);
-  SetTextColor(bmpDc, RGB(255, 255, 255));
-  SetBkColor(bmpDc, RGB(0, 0, 0));
-  TextOut(bmpDc, 0, 0, text, length);
-  SelectObject(bmpDc, oldBm);
-
-  SelectObject(bmpDc, oldFont);
   ReleaseDC(NULL, dc);
-  DeleteDC(bmpDc);
 
   *pbm = bm;
   *psz = sz;
@@ -174,6 +206,8 @@ i_wf_text(char *face, i_img *im, int tx, int ty, i_color *cl, int size,
   int top;
 
   bits = render_text(face, size, text, len, aa, &bm, &sz, &tm);
+  if (!bits)
+    return 0;
   
   line_width = sz.cx * 3;
   line_width = (line_width + 3) / 4 * 4;
@@ -212,6 +246,8 @@ i_wf_cp(char *face, i_img *im, int tx, int ty, int channel, int size,
   int top;
 
   bits = render_text(face, size, text, len, aa, &bm, &sz, &tm);
+  if (!bits)
+    return 0;
   
   line_width = sz.cx * 3;
   line_width = (line_width + 3) / 4 * 4;
