@@ -5,7 +5,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..47\n"; }
+BEGIN { $| = 1; print "1..49\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Imager;
 #use Data::Dumper;
@@ -77,6 +77,7 @@ print "ok 29\n";
 i_ppal($im_pal, 50, 0, ($blue_idx) x 50) == 50
   or print "not ";
 print "ok 30\n";
+
 # make sure we get it back
 my @pals = i_gpal($im_pal, 0, 100, 0);
 grep($_ != $red_idx, @pals[0..49]) and print "not ";
@@ -92,46 +93,52 @@ my @samp_exp = ((255, 0, 0) x 50, (0, 0, 255) x 50);
 my $diff = array_ncmp(\@samp, \@samp_exp);
 $diff == 0 or print "not ";
 print "ok 35\n";
+my $samp = i_gsamp($im_pal, 0, 100, 0, 0, 1, 2);
+length($samp) == 300 or print "not ";
+print "ok 36\n";
+$samp eq "\xFF\0\0" x 50 . "\0\0\xFF" x 50
+  or print "not ";
+print "ok 37\n";
 
 # reading indicies as colors
 my $c_red = i_get_pixel($im_pal, 0, 0)
   or print "not ";
-print "ok 36\n";
+print "ok 38\n";
 color_cmp($red, $c_red) == 0
   or print "not ";
-print "ok 37\n";
+print "ok 39\n";
 my $c_blue = i_get_pixel($im_pal, 50, 0)
   or print "not ";
-print "ok 38\n";
+print "ok 40\n";
 color_cmp($blue, $c_blue) == 0
   or print "not ";
-print "ok 39\n";
+print "ok 41\n";
 
 # drawing with colors
 i_ppix($im_pal, 0, 0, $green) and print "not ";
-print "ok 40\n";
+print "ok 42\n";
 # that was in the palette, should still be paletted
 print i_img_type($im_pal) == 1
-  ? "ok 41\n" : "not ok 41 # pal img isn't paletted (but still should be)\n";
+  ? "ok 43\n" : "not ok 43 # pal img isn't paletted (but still should be)\n";
 
 my $c_green = i_get_pixel($im_pal, 0, 0)
   or print "not ";
-print "ok 42\n";
+print "ok 44\n";
 color_cmp($green, $c_green) == 0
   or print "not ";
-print "ok 43\n";
+print "ok 45\n";
 
 i_colorcount($im_pal) == 3 or print "not ";
-print "ok 44\n";
+print "ok 46\n";
 i_findcolor($im_pal, $green) == 1 or print "not ";
-print "ok 45\n";
+print "ok 47\n";
 
 my $black = NC(0, 0, 0);
 # this should convert the image to RGB
 i_ppix($im_pal, 1, 0, $black) and print "not ";
-print "ok 46\n";
+print "ok 48\n";
 print i_img_type($im_pal) == 0
-  ? "ok 47\n" : "not ok 47 # pal img shouldn't be paletted now\n";
+  ? "ok 49\n" : "not ok 49 # pal img shouldn't be paletted now\n";
 
 sub check_add {
   my ($base, $im, $color, $expected) = @_;
