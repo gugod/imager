@@ -1443,11 +1443,11 @@ sub matrix_transform {
 # These two are supported for legacy code only
 
 sub i_color_new {
-  return Imager::Color->new($_[0], $_[1], $_[2], $_[3]);
+  return Imager::Color->new(@_);
 }
 
 sub i_color_set {
-  return Imager::Color::set($_[0], $_[1], $_[2], $_[3], $_[4]);
+  return Imager::Color::set(@_);
 }
 
 # Draws a box between the specified corner points.

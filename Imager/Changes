@@ -469,6 +469,7 @@ Revision history for Perl extension Imager.
           previous character)
         - some utf8 support for freetype2
         - some vertical layout support for freetype2
+        - named parameters for specifying colors, with quite a few options.
 
 =================================================================
 
