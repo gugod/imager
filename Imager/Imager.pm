@@ -2474,7 +2474,7 @@ downwards.
 =head2 Reading and writing images
 
 You can read and write a variety of images formats, assuming you have
-the appropriate libraries, and images can read or written to/from
+the appropriate libraries, and images can be read or written to/from
 files, file handles, file descriptors, scalars, or through callbacks.
 
 To see which image formats Imager is compiled to support the following
@@ -2486,7 +2486,7 @@ code snippet is sufficient:
 This will include some other information identifying libraries rather
 than file formats.
 
-Reading a writing to and from files is simple, use the C<read()>
+Reading writing to and from files is simple, use the C<read()>
 method to read an image:
 
   my $img = Imager->new;
@@ -2501,7 +2501,9 @@ and the C<write()> method to write an image:
 If the I<filename> includes an extension that Imager recognizes, then
 you don't need the I<type>, but you may want to provide one anyway.
 Imager currently does not check the files magic to determine the
-format.
+format.  It is possible to override the method for determining the 
+filetype from the filename.  If the data is given in another form than
+a file name a 
 
 When you read an image, Imager may set some tags, possibly including
 information about the spatial resolution, textual information, and
