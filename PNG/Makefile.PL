@@ -27,9 +27,10 @@ require Imager::Probe;
 
 my %probe =
   (
+   name => "PNG",
    pkg => [ qw/libpng14 libpng12 libpng10 libpng/ ],
    inccheck => sub { -e File::Spec->catfile($_[0], "png.h") },
-   libbase => "libpng",
+   libbase => "png",
   );
 $DB::single = 1;
 my $probe_res = Imager::Probe->probe(\%probe);
