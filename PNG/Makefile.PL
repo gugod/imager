@@ -32,29 +32,34 @@ my %probe =
    inccheck => sub { -e File::Spec->catfile($_[0], "png.h") },
    libbase => "png",
   );
+
 $DB::single = 1;
 my $probe_res = Imager::Probe->probe(\%probe);
-unless ($probe_res) {
+if ($probe_res) {
+  push @inc, $probe_res->{INC};
+  $opts{LIBS} = $probe_res->{LIBS};
+  
+  $opts{INC} = "@inc";
+  
+  my $MM_ver = eval $ExtUtils::MakeMaker::VERSION;
+  if ($MM_ver > 6.06) {
+    $opts{AUTHOR} = 'Tony Cook <tony@imager.perl.org>';
+    $opts{ABSTRACT} = 'PNG Image file support';
+  }
+  
+  ++$|;
+  use Data::Dumper;
+  print Dumper \%opts;
+  
+  WriteMakefile(%opts);
+}
+else {
   if ($BUILDING_IMAGER) {
-    WriteEmptyMakefile();
+    WriteEmptyMakefile(%opts);
   }
   else {
     # fail in good way
     die "OS unsupported: PNG libraries or headers not found\n";
   }
 }
-
-push @inc, $probe_res->{INC};
-$opts{LIBS} = $probe_res->{LIBS};
-
-$opts{INC} = "@inc";
-
-my $MM_ver = eval $ExtUtils::MakeMaker::VERSION;
-if ($MM_ver > 6.06) {
-  $opts{AUTHOR} = 'Tony Cook <tony@imager.perl.org>';
-  $opts{ABSTRACT} = 'PNG Image file support';
-}
-
-WriteMakefile(%opts);
-
 
