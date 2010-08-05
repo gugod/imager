@@ -11,6 +11,10 @@ use vars qw(%formats $VERBOSE $INCPATH $LIBPATH $NOLOG $DEBUG_MALLOC $MANUAL $CF
 use lib 'inc';
 use Devel::CheckLib;
 
+# EU::MM runs Makefile.PL all in the same process, so sub-modules will
+# see this
+our $BUILDING_IMAGER = 1;
+
 #
 # IM_INCPATH      colon seperated list of paths to extra include paths
 # IM_LIBPATH      colon seperated list of paths to extra library paths
@@ -534,19 +538,19 @@ sub init {
 		    postcheck => \&postcheck_tiff,
 		   };
 
-  $formats{'png'}={
-		   order=>'22',
-		   def=>'HAVE_LIBPNG',
-		   inccheck=>sub { -e catfile($_[0], 'png.h') },
-		   libcheck=>sub { $_[0] eq "libpng$aext" or $_[0] eq "libpng.$lext" },
-		   libfiles=>$^O eq 'MSWin32' ? '-lpng -lzlib' : '-lpng -lz',
-		   objfiles=>'png.o',
-		   docs=>q{
-			   Png stands for Portable Network Graphics and is intended as
-			   a replacement for gif on the web. It is patent free and
-			   is recommended by the w3c, you need libpng to use these formats},
-                   code => \&png_probe,
-		  };
+#   $formats{'png'}={
+# 		   order=>'22',
+# 		   def=>'HAVE_LIBPNG',
+# 		   inccheck=>sub { -e catfile($_[0], 'png.h') },
+# 		   libcheck=>sub { $_[0] eq "libpng$aext" or $_[0] eq "libpng.$lext" },
+# 		   libfiles=>$^O eq 'MSWin32' ? '-lpng -lzlib' : '-lpng -lz',
+# 		   objfiles=>'png.o',
+# 		   docs=>q{
+# 			   Png stands for Portable Network Graphics and is intended as
+# 			   a replacement for gif on the web. It is patent free and
+# 			   is recommended by the w3c, you need libpng to use these formats},
+#                    code => \&png_probe,
+# 		  };
 
   $formats{'gif'}={
 		   order=>'20',

@@ -55,6 +55,12 @@ Mandelbrot/mandel.c
 Mandelbrot/t/t00mandel.t
 Makefile.PL
 README
+PNG/Makefile.PL
+PNG/PNG.pm
+PNG/PNG.xs
+PNG/impng.c
+PNG/impng.h
+PNG/t/00load.t
 SGI/Makefile.PL
 SGI/SGI.pm
 SGI/SGI.xs
@@ -175,6 +181,7 @@ lib/Imager/IO.pod		Document Imager::IO objects
 lib/Imager/LargeSamples.pod	Track large sample support
 lib/Imager/Matrix2d.pm
 lib/Imager/Preprocess.pm
+lib/Imager/Probe.pm		Library probes
 lib/Imager/Regops.pm
 lib/Imager/Test.pm
 lib/Imager/Transform.pm
@@ -190,7 +197,6 @@ maskimg.c
 palimg.c
 paste.im
 plug.h
-png.c
 pnm.c
 polygon.c
 ppport.h
