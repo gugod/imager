@@ -19,6 +19,10 @@ sub probe {
   if (!$result && $req->{inccheck} && ($req->{libcheck} || $req->{libbase})) {
     $result = _probe_check($req);
   }
+
+  if (!$result && $req->{testcode}) {
+    $result = _probe_fake($req);
+  }
   $result or return;
 
   if ($req->{testcode}) {
@@ -160,6 +164,36 @@ sub _probe_check {
      INC => "-I$found_incpath",
      LIBS => "@libs",
     };
+}
+
+sub _probe_fake {
+  my ($req) = @_;
+
+  # the caller provided test code, and the compiler may look in
+  # places we don't, see Imager-Screenshot ticket 56793,
+  # so fake up a result so the test code can 
+  my $lopts;
+  if ($req->{libopts}) {
+    $lopts = $req->{libopts};
+  }
+  elsif (defined $req->{libbase}) {
+    # might not need extra libraries, eg. Win32 perl already links
+    # everything
+    $lopts = $req->{libbase} ? "-l$req->{libbase}" : "";
+  }
+  if (defined $lopts) {
+    print "$req->{name}: Checking if the compiler can find them on it's own\n";
+    return
+      {
+       INC => "",
+       LIBS => $lopts,
+      };
+  }
+  else {
+    print "$req->{name}: Can't fake it - no libbase or libopts\n"
+      if $req->{verbose};
+    return;
+  }
 }
 
 sub _probe_test {
