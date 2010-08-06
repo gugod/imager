@@ -59,6 +59,8 @@ GetOptions("help" => \$help,
 	   'coverage' => \$coverage,
 	   "assert|a" => \$assert);
 
+setenv();
+
 if ($ENV{AUTOMATED_TESTING}) {
   $assert = 1;
 }
@@ -680,6 +682,13 @@ sub getenv {
 				IM_LFLAGS
 				IM_DFLAGS);
 
+}
+
+# populate the environment so that sub-modules get the same info
+sub setenv {
+  $ENV{IM_VERBOSE} = 1 if $VERBOSE;
+  $ENV{IM_INCPATH} = join $Config{path_sep}, @incpaths if @incpaths;
+  $ENV{IM_LIBPATH} = join $Config{path_sep}, @libpaths if @libpaths;
 }
 
 sub make_imconfig {

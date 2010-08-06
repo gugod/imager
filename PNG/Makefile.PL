@@ -1,8 +1,19 @@
 #!perl -w
 use strict;
 use ExtUtils::MakeMaker qw(WriteMakefile WriteEmptyMakefile);
+use Getopt::Long;
+
+my $verbose = $ENV{IM_VERBOSE};
+my @libpaths;
+my @incpaths;
+
+GetOptions("incpath=s", \@incpaths,
+           "libpath=s" => \@libpaths,
+           "verbose|v" => \$verbose);
 
 our $BUILDING_IMAGER;
+
+my $MM_ver = eval $ExtUtils::MakeMaker::VERSION;
 
 my %opts = 
   (
@@ -13,14 +24,35 @@ my %opts =
 
 my @inc;
 if ($BUILDING_IMAGER) {
-  print "Building PNG under Imager\n";
   push @inc, "-I..";
   push @INC, "../lib";
 }
 else {
+  print "PNG: building independently\n";
   require Imager::ExtUtils;
   push @inc, Imager::ExtUtils->includes;
-  $opts{TYPEMAPS} = [ Imager::ExtUtils->typemap ],
+  $opts{TYPEMAPS} = [ Imager::ExtUtils->typemap ];
+
+  # Imager required configure through use
+  my @Imager_req = ( Imager => "0.76" );
+  if ($MM_ver >= 6.46) {
+    $opts{META_MERGE} =
+      {
+       configure_requires => 
+       {
+	@Imager_req,
+       },
+       build_requires => 
+       {
+	@Imager_req,
+	"Test::More" => "0.47",
+       }
+      };
+    $opts{PREREQ_PM} =
+      {
+       @Imager_req,
+      };
+  }
 }
 
 require Imager::Probe;
@@ -31,9 +63,10 @@ my %probe =
    pkg => [ qw/libpng14 libpng12 libpng10 libpng/ ],
    inccheck => sub { -e File::Spec->catfile($_[0], "png.h") },
    libbase => "png",
+   testcode => _png_test_code(),
+   testcodeheaders => [ "png.h", "stdio.h" ],
   );
 
-$DB::single = 1;
 my $probe_res = Imager::Probe->probe(\%probe);
 if ($probe_res) {
   push @inc, $probe_res->{INC};
@@ -41,15 +74,10 @@ if ($probe_res) {
   
   $opts{INC} = "@inc";
   
-  my $MM_ver = eval $ExtUtils::MakeMaker::VERSION;
   if ($MM_ver > 6.06) {
     $opts{AUTHOR} = 'Tony Cook <tony@imager.perl.org>';
     $opts{ABSTRACT} = 'PNG Image file support';
   }
-  
-  ++$|;
-  use Data::Dumper;
-  print Dumper \%opts;
   
   WriteMakefile(%opts);
 }
@@ -63,3 +91,10 @@ else {
   }
 }
 
+sub _png_test_code {
+  return <<'CODE';
+
+fprintf(stderr, "PNG: library version %ld, header version %ld\n", (long)png_access_version_number(),  (long)PNG_LIBPNG_VER);
+return 0;
+CODE
+}

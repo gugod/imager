@@ -6,6 +6,8 @@ use Config;
 sub probe {
   my ($class, $req) = @_;
 
+  $req->{verbose} ||= $ENV{IM_VERBOSE};
+
   my $name = $req->{name};
   my $result;
   if ($req->{code}) {
@@ -64,7 +66,6 @@ sub is_exe {
 sub _probe_pkg {
   my ($req) = @_;
 
-  $DB::single = 1;
   is_exe('pkg-config') or return;
   my $redir = $^O eq 'MSWin32' ? '' : '2>/dev/null';
 
@@ -112,8 +113,12 @@ sub _probe_check {
 
   my $found_libpath;
   my @lib_search = _lib_paths($req);
+  print "$req->{name}: Searching directories for libraries:\n"
+    if $req->{verbose};
   for my $path (@lib_search) {
+    print "$req->{name}:   $path\n" if $req->{verbose};
     if ($libcheck->($path)) {
+      print "$req->{name}: Found!\n" if $req->{verbose};
       $found_libpath = $path;
       last;
     }
@@ -122,8 +127,12 @@ sub _probe_check {
   my $found_incpath;
   my $inccheck = $req->{inccheck};
   my @inc_search = _inc_paths($req);
+  print "$req->{name}: Searching directories for headers:\n"
+    if $req->{verbose};
   for my $path (@inc_search) {
+    print "$req->{name}:   $path\n" if $req->{verbose};
     if ($inccheck->($path)) {
+      print "$req->{name}: Found!\n" if $req->{verbose};
       $found_incpath = $path;
       last;
     }
@@ -153,6 +162,39 @@ sub _probe_check {
     };
 }
 
+sub _probe_test {
+  my ($req, $result) = @_;
+
+  require Devel::CheckLib;
+  # setup LD_RUN_PATH to match link time
+  my ($extra, $bs_load, $ld_load, $ld_run_path) =
+    ExtUtils::Liblist->ext($req->{LIBS}, $req->{verbose});
+  local $ENV{LD_RUN_PATH};
+
+  if ($ld_run_path) {
+    print "Setting LD_RUN_PATH=$ld_run_path for TIFF probe\n"
+      if $req->{verbose};
+    $ENV{LD_RUN_PATH} = $ld_run_path;
+  }
+  my $good =
+    Devel::CheckLib::check_lib
+	(
+	 debug => $req->{verbose},
+	 LIBS => $result->{LIBS},
+	 INC => $result->{INC},
+	 header => $req->{testcodeheaders},
+	 function => $req->{testcode},
+	);
+  unless ($good) {
+    print "$req->{name}: Test code failed checklib probe: $@\n"
+      if $req->{verbose};
+    return;
+  }
+
+  print "$req->{name}: Passed code check\n";
+  return $result;
+}
+
 sub _lib_paths {
   my ($req) = @_;
 
@@ -163,7 +205,7 @@ sub _lib_paths {
      (
       map { split ' ' }
       grep $_,
-      @Config{qw/locincpath incpath libspath/}
+      @Config{qw/loclibpath libpth libspath/}
      ),
      $^O eq "MSWin32" ? $ENV{LIB} : "",
      $^O eq "cygwin" ? "/usr/lib/w32api" : "",
@@ -179,6 +221,11 @@ sub _inc_paths {
      $req->{incpath},
      $^O eq "MSWin32" ? $ENV{INCLUDE} : "",
      $^O eq "cygwin" ? "/usr/include/w32api" : "",
+     (
+      map { split ' ' }
+      grep $_,
+      @Config{qw/locincpath incpath/}
+     ),
      "/usr/include",
      "/usr/local/include",
     );
@@ -191,11 +238,33 @@ sub _paths {
 
   for my $path (@in) {
     $path or next;
+    $path = _tilde_expand($path);
 
     push @out, grep -d $_, split /\Q$Config{path_sep}/, $path;
   }
 
   return @out;
+}
+
+my $home;
+sub _tilde_expand {
+  my ($path) = @_;
+
+  if ($path =~ m!^~[/\\]!) {
+    defined $home or $home = $ENV{HOME};
+    if (!defined $home && $^O eq 'MSWin32'
+       && defined $ENV{HOMEDRIVE} && defined $ENV{HOMEPATH}) {
+      $home = $ENV{HOMEDRIVE} . $ENV{HOMEPATH};
+    }
+    unless (defined $home) {
+      $home = eval { (getpwuid($<))[7] };
+    }
+    defined $home or die "You supplied $path, but I can't find your home directory\n";
+    $path =~ s/^~//;
+    $path = File::Spec->catdir($home, $path);
+  }
+
+  return $path;
 }
 
 1;
@@ -212,9 +281,23 @@ Imager::Probe - hot needle of inquiry for libraries
 
   my %probe = 
     (
+     # short name of what we're looking for (displayed to user)
+     name => "FOO",
      # pkg-config lookup
      pkg => [ qw/name1 name2 name3/ ],
-     
+     # perl subs that probe for the library
+     code => [ \&foo_probe1, \&foo_probe2 ],
+     # or just: code => \&foo_probe,
+     inccheck => sub { ... },
+     libcheck => sub { ... },
+     # search for this library if libcheck not supplied
+     libbase => "foo",
+     # library link time options, uses libbase to build options otherwise
+     libopts => "-lfoo",
+     # C code to check the library is sane
+     testcode => "...",
+     # header files needed
+     testcodeheaders => [ "stdio.h", "foo.h" ],
     );
   my $result = Imager::Probe->probe(\%probe)
     or print "Foo library not found: ",Imager::Probe->error;
@@ -276,6 +359,21 @@ these are the C<-l> options to supply during the link phase.
 
 C<code> - a code reference to perform custom checks.  Returns the
 probe result directly.  Can also be an array ref of functions to call.
+
+=item *
+
+C<testcode> - test C code that is run with Devel::CheckLib.  You also
+need to set C<testcodeheaders>.
+
+=item *
+
+C<incpath> - C<$Config{path_sep}> separated list of header file
+directories to check.
+
+=item *
+
+C<libpath> - C<$Config{path_sep}> separated list of library file
+directories to check.
 
 =back
 
