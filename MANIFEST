@@ -133,6 +133,9 @@ imager.h
 Imager.pm
 Imager.xs
 imageri.h
+imcms.c
+imcms.h
+imcmst.h
 imdatatypes.h
 imerror.h			Error handling functions
 imext.c				Defines the function table

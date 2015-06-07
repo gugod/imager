@@ -2,8 +2,8 @@
    aren't meant to be available externally
 */
 
-#ifndef IMAGEI_H_
-#define IMAGEI_H_
+#ifndef IMAGERI_H_
+#define IMAGERI_H_
 
 #include "imager.h"
 #include <stddef.h>
@@ -137,6 +137,12 @@ typedef struct im_context_tag {
   /* per context storage */
   size_t slot_alloc;
   void **slots;
+
+  /* color management */
+  imcms_profile_t rgb_profile;
+  imcms_profile_t gray_profile;
+  imcms_curve_t rgb_curves[3];
+  imcms_curve_t gray_curve;
 
   ptrdiff_t refcount;
 } im_context_struct;

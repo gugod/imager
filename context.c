@@ -4,6 +4,7 @@
 static volatile im_slot_t slot_count = 1;
 static im_slot_destroy_t *volatile slot_destructors;
 static volatile i_mutex_t slot_mutex;
+static void fill_curves(im_context_t ctx);
 
 /*
 =item im_context_new()
@@ -47,10 +48,14 @@ im_context_new(void) {
 
   ctx->refcount = 1;
 
+  imcms_initialize(ctx);
+  ctx->rgb_profile = imcms_srgb_profile(ctx);
+  ctx->gray_profile = imcms_sgray_profile(ctx);
+  fill_curves(ctx);
+  
 #ifdef IMAGER_TRACE_CONTEXT
   fprintf(stderr, "im_context: created %p\n", ctx);
 #endif
-
 
   return ctx;
 }
@@ -104,6 +109,10 @@ im_context_refdec(im_context_t ctx, const char *where) {
 
   if (ctx->refcount != 0)
     return;
+
+  imcms_free_profile(ctx->rgb_profile);
+  imcms_free_profile(ctx->gray_profile);
+  imcms_finalize(ctx);
 
   /* lock here to avoid slot_destructors from being moved under us */
   i_mutex_lock(slot_mutex);
@@ -183,6 +192,11 @@ im_context_clone(im_context_t ctx, const char *where) {
 
   nctx->refcount = 1;
 
+  imcms_initialize(nctx);
+  nctx->rgb_profile = imcms_srgb_profile(nctx);
+  nctx->gray_profile = imcms_sgray_profile(nctx);
+  fill_curves(nctx);
+  
 #ifdef IMAGER_TRACE_CONTEXT
   fprintf(stderr, "im_context:%s: cloned %p to %p\n", where, ctx, nctx);
 #endif
@@ -286,4 +300,12 @@ im_context_slot_get(im_context_t ctx, im_slot_t slot) {
     return NULL;
 
   return ctx->slots[slot];
+}
+
+static void
+fill_curves(im_context_t ctx) {
+  if (!imcms_profile_curves(ctx->rgb_profile, ctx->rgb_curves, 3)
+      || !imcms_profile_curves(ctx->gray_profile, &ctx->gray_curve, 1)) {
+    fprintf(stderr, "Could not fetch profile curves for context\n");
+  }
 }
