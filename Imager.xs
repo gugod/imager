@@ -3392,12 +3392,11 @@ i_gsamp(im, l, r, y, channels)
         i_img_dim r
         i_img_dim y
         i_channel_list channels
-      PREINIT:
-        i_sample_t *data;
-        i_img_dim count, i;
       PPCODE:
         if (l < r) {
-          data = mymalloc(sizeof(i_sample_t) * (r-l) * channels.count);
+	  i_sample_t *data;
+	  i_img_dim count, i;
+	  data = mymalloc(sizeof(i_sample_t) * (r-l) * channels.count);
           count = i_gsamp(im, l, r, y, data, channels.channels, channels.count);
           if (GIMME_V == G_ARRAY) {
             EXTEND(SP, count);
@@ -3640,11 +3639,10 @@ i_gsampf(im, l, r, y, channels)
         i_img_dim r
         i_img_dim y
 	i_channel_list channels
-      PREINIT:
-        i_fsample_t *data;
-        i_img_dim count, i;
       PPCODE:
         if (l < r) {
+	  i_fsample_t *data;
+	  i_img_dim count, i;
           data = mymalloc(sizeof(i_fsample_t) * (r-l) * channels.count);
           count = i_gsampf(im, l, r, y, data, channels.channels, channels.count);
           if (GIMME_V == G_ARRAY) {
@@ -3795,14 +3793,14 @@ i_gslin(im, l, r, y, channels)
         i_img_dim r
         i_img_dim y
         i_channel_list channels
-      PREINIT:
-        char *sdata;
-	i_sample16_t *data;
-	i_img_dim count, i;
       PPCODE:	
         if (l < r) {
+	  char *sdata;
+	  i_sample16_t *data;
+	  i_img_dim count, i;
           Newx(sdata, sizeof(i_sample16_t) * (r-l) * channels.count + 2, char);
 	  data = (i_sample16_t *)sdata;
+	  i_clear_error();
           count = i_gslin(im, l, r, y, data, channels.channels, channels.count);
           if (GIMME_V == G_ARRAY) {
             EXTEND(SP, count);
@@ -3811,9 +3809,12 @@ i_gslin(im, l, r, y, channels)
 	    Safefree(data);
           }
           else {
-	    size_t size = count * sizeof(i_sample16_t);
-	    SV *sv = sv_newmortal();
-
+	    size_t size;
+	    SV *sv;
+	    if (count <= 0)
+	      XSRETURN_UNDEF;
+	    size = count * sizeof(i_sample16_t);
+	    sv = sv_newmortal();
 	    sdata[size] = '\0';
 	    sv_usepvn_flags(sv, sdata, size, SV_HAS_TRAILING_NUL);
 
@@ -3822,7 +3823,6 @@ i_gslin(im, l, r, y, channels)
           }
         }
         else {
-	  Safefree(data);
           if (GIMME_V != G_ARRAY) {
 	    XSRETURN_UNDEF;
           }
@@ -3835,12 +3835,11 @@ i_gslinf(im, l, r, y, channels)
         i_img_dim r
         i_img_dim y
         i_channel_list channels
-      PREINIT:
-        char *sdata;
-	i_fsample_t *data;
-	i_img_dim count, i;
       PPCODE:	
         if (l < r) {
+	  char *sdata;
+	  i_fsample_t *data;
+	  i_img_dim count, i;
           Newx(sdata, sizeof(i_fsample_t) * (r-l) * channels.count + 2, char);
 	  data = (i_fsample_t *)sdata;
           count = i_gslinf(im, l, r, y, data, channels.channels, channels.count);
@@ -3862,7 +3861,6 @@ i_gslinf(im, l, r, y, channels)
           }
         }
         else {
-	  Safefree(data);
           if (GIMME_V != G_ARRAY) {
 	    XSRETURN_UNDEF;
           }
