@@ -763,33 +763,14 @@ i_psampf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
   }
 }
 
-static imcms_curve_t *
-model_curves(i_img *im, int *color_chan) {
-  dIMCTXim(im);
-
-  switch (i_img_color_model(im)) {
-  case icm_unknown:
-    *color_chan = 0;
-    return NULL;
-  case icm_gray:
-  case icm_gray_alpha:
-    *color_chan = 1;
-    return &aIMCTX->gray_curve;
-
-  case icm_rgb:
-  case icm_rgb_alpha:
-    *color_chan = 3;
-    return aIMCTX->rgb_curves;
-  }
-}
-
 static i_img_dim
 i_gslin_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
 	  i_sample16_t *samps, const int *chans, int chan_count) {
   i_img_dim count, i, w;
   const unsigned char *data;
   int color_chans;
-  imcms_curve_t *curves = model_curves(im, &color_chans);
+  dIMCTXim(im);
+  const imcms_curve_t *curves = im_model_curves(aIMCTX, i_img_color_model(im), &color_chans);
 
   if (y >= 0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
@@ -856,7 +837,8 @@ i_gslinf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
   i_img_dim count, i, w;
   unsigned char *data;
   int color_chans;
-  imcms_curve_t *curves = model_curves(im, &color_chans);
+  dIMCTXim(im);
+  const imcms_curve_t *curves = im_model_curves(aIMCTX, i_img_color_model(im), &color_chans);
 
   if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
@@ -924,7 +906,8 @@ i_pslin_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
   i_img_dim count, i, w;
   unsigned char *data;
   int color_chans;
-  imcms_curve_t *curves = model_curves(im, &color_chans);
+  dIMCTXim(im);
+  const imcms_curve_t *curves = im_model_curves(aIMCTX, i_img_color_model(im), &color_chans);
 
   if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
@@ -1022,7 +1005,8 @@ i_pslinf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
   i_img_dim count, i, w;
   unsigned char *data;
   int color_chans;
-  imcms_curve_t *curves = model_curves(im, &color_chans);
+  dIMCTXim(im);
+  const imcms_curve_t *curves = im_model_curves(aIMCTX, i_img_color_model(im), &color_chans);
 
   if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
     if (r > im->xsize)
