@@ -160,4 +160,6 @@ returns -1 and pushes an error.
 #define io_new_cb(p, readcb, writecb, seekcb, closecb, destroycb) \
   im_io_new_cb(aIMCTX, (p), (readcb), (writecb), (seekcb), (closecb), (destroycb))
 
+#define i_model_curves(im, pcolor_chans) im_model_curves(aIMCTX, (im), (pcolor_chans))
+
 #endif

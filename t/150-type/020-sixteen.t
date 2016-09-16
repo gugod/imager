@@ -1,8 +1,5 @@
 #!perl -w
 use strict;
-use Test::More tests => 155;
-
-BEGIN { use_ok(Imager=>qw(:all :handy)) }
 
 -d "testout" or mkdir "testout";
 
@@ -10,7 +7,11 @@ Imager->open_log(log => "testout/t021sixteen.log");
 
 use Imager::Color::Float;
 use Imager::Test qw(test_image is_image image_bounds_checks test_colorf_gpix
-                    test_colorf_glin mask_tests is_color3);
+                    test_colorf_glin mask_tests is_color3 std_image_tests std_image_tests_count);
+
+use Test::More tests => 155 + std_image_tests_count({ bits => 16 });
+
+BEGIN { use_ok(Imager=>qw(:all :handy)) }
 
 my $im_g = Imager::i_img_16_new(100, 101, 1);
 
@@ -355,6 +356,8 @@ my $psamp_outside_error = "Image position outside of image";
   }
   print "# end psampf tests\n";
 }
+
+std_image_tests({ bits => 16 });
 
 Imager->close_log;
 
