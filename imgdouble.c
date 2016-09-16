@@ -41,6 +41,21 @@ i_psamp_ddoub(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, const i_sample_t
 static i_img_dim 
 i_psampf_ddoub(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, const i_fsample_t *samps, const int *chans, int chan_count);
 
+static i_img_dim i_gslindbl_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, i_sample16_t *samps, const int *chans, int chan_count);
+static i_img_dim i_gslindblf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, i_fsample_t *samps, const int *chans, int chan_count);
+static i_img_dim i_pslindbl_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, const i_sample16_t *samps, const int *chans, int chan_count);
+static i_img_dim i_pslindblf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, const i_fsample_t *samps, const int *chans, int chan_count);
+
+
+static const
+i_img_vtable iim_dbl_vtable =
+  {
+    i_gslindbl_d,
+    i_gslindblf_d,
+    i_pslindbl_d,
+    i_pslindblf_d
+  };
+
 /*
 =item IIM_base_16bit_direct
 
@@ -88,7 +103,12 @@ static i_img IIM_base_double_direct =
   NULL, /* i_f_psamp_bits */
 
   i_psamp_ddoub, /* i_f_psamp */
-  i_psampf_ddoub /* i_f_psampf */
+  i_psampf_ddoub, /* i_f_psampf */
+
+  NULL,
+  NULL,
+
+  &iim_dbl_vtable
 };
 
 /*
@@ -647,6 +667,342 @@ i_img_to_drgb(i_img *im) {
 
   return targ;
 }
+
+static i_img_dim
+i_gslindbl_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
+	  i_sample16_t *samps, const int *chans, int chan_count) {
+  dIMCTXim(im);
+  int ch;
+  int chi;
+  i_img_dim count, i, w;
+  i_img_dim off;
+  int color_chans;
+  const imcms_curve_t *curves = i_model_curves(i_img_color_model(im), &color_chans);
+
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    if (r > im->xsize)
+      r = im->xsize;
+    off = (l+y*im->xsize) * im->channels;
+    w = r - l;
+    count = 0;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          im_push_errorf(aIMCTX, 0, "No channel %d in this image", chans[ch]);
+          return 0;
+        }
+      }
+      for (i = 0; i < w; ++i) {
+        for (chi = 0; chi < chan_count; ++chi) {
+	  int ch = chans[chi];
+	  i_fsample_t raw = ((double *)im->idata)[off+chans[ch]];
+	  if (ch < color_chans)
+	    *samps++ = SampleFTo16(imcms_to_linearf(curves[ch], raw));
+	  else
+	    *samps++ = SampleFTo16(raw);
+          ++count;
+        }
+        off += im->channels;
+      }
+    }
+    else {
+      if (chan_count <= 0 || chan_count > im->channels) {
+	im_push_errorf(aIMCTX, 0, "chan_count %d out of range, must be >0, <= channels", 
+		      chan_count);
+	return 0;
+      }
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+	  i_fsample_t raw = ((double *)im->idata)[off+ch];
+	  if (ch < color_chans)
+	    *samps++ = SampleFTo16(imcms_to_linearf(curves[ch], raw));
+	  else
+	    *samps++ = SampleFTo16(raw);
+          ++count;
+        }
+        off += im->channels;
+      }
+    }
+
+    return count;
+  }
+  else {
+    return 0;
+  }
+}
+
+static i_img_dim
+i_gslindblf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y,
+	  i_fsample_t *samps, const int *chans, int chan_count) {
+  dIMCTXim(im);
+  int ch;
+  int chi;
+  i_img_dim count, i, w;
+  int color_chans;
+  const imcms_curve_t *curves = i_model_curves(i_img_color_model(im), &color_chans);
+
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    i_img_dim off;
+    if (r > im->xsize)
+      r = im->xsize;
+    off = (l+y*im->xsize) * im->channels;
+    w = r - l;
+    count = 0;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          im_push_errorf(aIMCTX, 0, "No channel %d in this image", chans[ch]);
+          return 0;
+        }
+      }
+      for (i = 0; i < w; ++i) {
+        for (chi = 0; chi < chan_count; ++chi) {
+	  int ch = chans[chi];
+	  i_fsample_t raw = ((double *)im->idata)[off+ch];
+	  if (ch < color_chans)
+	    *samps++ = imcms_to_linearf(curves[ch], raw);
+	  else
+	    *samps++ = raw;
+          ++count;
+        }
+        off += im->channels;
+      }
+    }
+    else {
+      if (chan_count <= 0 || chan_count > im->channels) {
+	im_push_errorf(aIMCTX, 0, "chan_count %d out of range, must be >0, <= channels", 
+		      chan_count);
+	return 0;
+      }
+      for (i = 0; i < w; ++i) {
+        for (ch = 0; ch < chan_count; ++ch) {
+	  i_fsample_t raw = ((double *)im->idata)[off+ch];
+	  if (ch < color_chans)
+	    *samps++ = imcms_to_linearf(curves[ch], raw);
+	  else
+	    *samps++ = raw;
+          ++count;
+        }
+        off += im->channels;
+      }
+    }
+
+    return count;
+  }
+  else {
+    return 0;
+  }
+}
+
+static
+i_img_dim
+i_pslindbl_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, 
+	  const i_sample16_t *samps, const int *chans, int chan_count) {
+  dIMCTXim(im);
+  i_img_dim count, i, w;
+  int color_chans;
+  const imcms_curve_t *curves = i_model_curves(i_img_color_model(im), &color_chans);
+
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    i_img_dim off;
+    if (r > im->xsize)
+      r = im->xsize;
+    off = (l+y*im->xsize) * im->channels;
+    w = r - l;
+    count = 0;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      /* and test if all channels specified are in the mask */
+      int all_in_mask = 1;
+      int ch;
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+          im_push_errorf(aIMCTX, 0, "No channel %d in this image", chans[ch]);
+          return -1;
+        }
+	if (!((1 << chans[ch]) & im->ch_mask))
+	  all_in_mask = 0;
+      }
+      if (all_in_mask) {
+	for (i = 0; i < w; ++i) {
+	  int chi;
+	  for (chi = 0; chi < chan_count; ++chi) {
+	    i_sample16_t samp = *samps++;
+	    int ch = chans[chi];
+	    i_fsample_t out;
+	    if (ch < color_chans)
+	      out = imcms_from_linearf(curves[ch], Sample16ToF(samp));
+	    else
+	      out = Sample16ToF(samp);
+	    ((double *)im->idata)[off+ch] = out;
+	    ++count;
+	  }
+	  off += im->channels;
+	}
+      }
+      else {
+	for (i = 0; i < w; ++i) {
+	  int chi;
+	  for (chi = 0; chi < chan_count; ++chi) {
+	    int ch = chans[chi];
+	    i_fsample_t out;
+	    if (im->ch_mask & (1 << ch)) {
+	      if (ch < color_chans)
+		out = imcms_from_linearf(curves[ch], Sample16ToF(*samps));
+	      else
+		out = Sample16ToF(*samps);
+	      ((double *)im->idata)[off+ch] = out;
+	    }
+	    ++samps;
+	    ++count;
+	  }
+	  off += im->channels;
+	}
+      }
+    }
+    else {
+      if (chan_count <= 0 || chan_count > im->channels) {
+	im_push_errorf(aIMCTX, 0, "chan_count %d out of range, must be >0, <= channels", 
+		      chan_count);
+	return -1;
+      }
+      for (i = 0; i < w; ++i) {
+	unsigned mask = 1;
+	int ch;
+        for (ch = 0; ch < chan_count; ++ch) {
+	  if (im->ch_mask & mask) {
+	    i_fsample_t out;
+	    if (ch < color_chans)
+	      out = imcms_from_linearf(curves[ch], Sample16ToF(*samps));
+	    else
+	      out = Sample16ToF(*samps);
+	    ((double *)im->idata)[off+ch] = out;
+	  }
+	  ++samps;
+          ++count;
+	  mask <<= 1;
+        }
+        off += im->channels;
+      }
+    }
+
+    return count;
+  }
+  else {
+    i_push_error(0, "Image position outside of image");
+    return -1;
+  }
+}
+
+static
+i_img_dim
+i_pslindblf_d(i_img *im, i_img_dim l, i_img_dim r, i_img_dim y, 
+	  const i_fsample_t *samps, const int *chans, int chan_count) {
+  dIMCTXim(im);
+  i_img_dim count, i, w;
+  int color_chans;
+  const imcms_curve_t *curves = i_model_curves(i_img_color_model(im), &color_chans);
+
+  if (y >=0 && y < im->ysize && l < im->xsize && l >= 0) {
+    i_img_dim off;
+    if (r > im->xsize)
+      r = im->xsize;
+    off = (l+y*im->xsize) * im->channels;
+    w = r - l;
+    count = 0;
+
+    if (chans) {
+      /* make sure we have good channel numbers */
+      /* and test if all channels specified are in the mask */
+      int all_in_mask = 1;
+      int ch;
+      for (ch = 0; ch < chan_count; ++ch) {
+        if (chans[ch] < 0 || chans[ch] >= im->channels) {
+	  dIMCTXim(im);
+          im_push_errorf(aIMCTX, 0, "No channel %d in this image", chans[ch]);
+          return -1;
+        }
+	if (!((1 << chans[ch]) & im->ch_mask))
+	  all_in_mask = 0;
+      }
+      if (all_in_mask) {
+	for (i = 0; i < w; ++i) {
+	  int chi;
+	  for (chi = 0; chi < chan_count; ++chi) {
+	    i_fsample_t samp = *samps++;
+	    int ch = chans[chi];
+	    i_fsample_t out;
+	    if (ch < color_chans)
+	      out = imcms_from_linearf(curves[ch], samp);
+	    else
+	      out = samp;
+	    ((double *)im->idata)[off+ch] = out;
+	    ++count;
+	  }
+	  off += im->channels;
+	}
+      }
+      else {
+	for (i = 0; i < w; ++i) {
+	  int chi;
+	  for (chi = 0; chi < chan_count; ++chi) {
+	    int ch = chans[chi];
+	    i_fsample_t out;
+	    if (im->ch_mask & (1 << ch)) {
+	      if (ch < color_chans)
+		out = imcms_from_linearf(curves[ch], *samps);
+	      else
+		out = *samps;
+	      ((double *)im->idata)[off+ch] = out;
+	    }
+	    ++samps;
+	    ++count;
+	  }
+	  off += im->channels;
+	}
+      }
+    }
+    else {
+      if (chan_count <= 0 || chan_count > im->channels) {
+	dIMCTXim(im);
+	im_push_errorf(aIMCTX, 0, "chan_count %d out of range, must be >0, <= channels", 
+		      chan_count);
+	return -1;
+      }
+      for (i = 0; i < w; ++i) {
+	unsigned mask = 1;
+	int ch;
+        for (ch = 0; ch < chan_count; ++ch) {
+	  if (im->ch_mask & mask) {
+	    i_fsample_t out;
+	    if (ch < color_chans)
+	      out = imcms_from_linearf(curves[ch], *samps);
+	    else
+	      out = *samps;
+	    ((double *)im->idata)[off+ch] = out;
+	  }
+	  ++samps;
+          ++count;
+	  mask <<= 1;
+        }
+        off += im->channels;
+      }
+    }
+
+    return count;
+  }
+  else {
+    dIMCTXim(im);
+    i_push_error(0, "Image position outside of image");
+    return -1;
+  }
+}
+
 
 /*
 =back
